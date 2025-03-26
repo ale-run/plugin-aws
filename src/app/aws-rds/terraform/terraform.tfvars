@@ -1,0 +1,15 @@
+region              = "${region}"
+identifier          = "${identifier}"
+engine              = "${engine}"
+engine_version      = "${engineVersion}"
+vpc_id              = "${vpcId}"
+db_subnet_group_name = "${dbSubnetGroupName}"
+instance_class      = "${instanceClass}"
+#storage_type        = "gp2"
+#storage_type=gp3 or io1 인 경우  
+#iops                = 1000
+#allocated_storage   = 20
+#max_allocated_storage = 100
+#port                = 3306        
+#maintenance_window = "Mon:18:00-Mon:20:00"
+#backup_window      = "16:00-18:00"

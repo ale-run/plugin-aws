@@ -1,0 +1,13 @@
+name: aws-lambda
+displayName: AWS Lambda
+description: AWS Lambda
+apps:
+  - aws-lambda
+categories:
+  - aws
+  - lambda
+config:
+  - name: aws-lambda
+    app: aws-lambda
+    options:
+      runtime: nodejs18.x

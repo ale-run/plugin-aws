@@ -1,0 +1,13 @@
+name: aws-memory-db
+displayName: AWS MemoryDB
+description: AWS MemoryDB
+apps:
+  - aws-memory-db
+categories:
+  - aws
+  - memoryDB
+config:
+  - name: aws-memory-db
+    app: aws-memory-db
+    # options:
+    #   engine: Redis

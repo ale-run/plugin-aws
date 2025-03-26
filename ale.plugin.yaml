@@ -1,0 +1,41 @@
+name: 'plugin-aws'
+version: '1.0.0'
+displayName: AWS
+description: Ale Plugin - AWS
+license: Apache-2.0
+author: ale
+homepage: https://ale.run
+repository: ale-run/plugin-aws
+main: lib/index.js
+icon:
+  src: aws.svg
+  background: transparent
+  scale: 1
+  shape: square
+schema:
+  type: object
+  properties:
+    AWS_ACCESS_KEY_ID:
+      title: AWS Access Key ID
+      type: string
+      maxLength: 255
+      attrs:
+        placeholder: AWS Access Key ID
+    AWS_SECRET_ACCESS_KEY:
+      title: AWS Secret Access Key
+      type: string
+      maxLength: 255
+      attrs:
+        placeholder: AWS Secret Access Key
+    REGION:
+      title: Default Region
+      type: string
+      maxLength: 255
+      attrs:
+        placeholder: Default Region
+    VPC_ID:
+      title: Default VPC ID
+      type: string
+      maxLength: 255
+      attrs:
+        placeholder: Default VPC ID

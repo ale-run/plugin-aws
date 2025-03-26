@@ -1,0 +1,13 @@
+name: aws-s3
+displayName: AWS S3
+description: AWS S3
+apps:
+  - aws-s3
+categories:
+  - aws
+  - s3
+config:
+  - name: aws-s3
+    app: aws-s3
+    # options:
+    #   engine: Redis

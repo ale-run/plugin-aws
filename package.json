@@ -1,0 +1,37 @@
+{
+  "name": "@ale-run/plugin-aws",
+  "version": "0.0.0",
+  "description": "Ale Plugin for AWS",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "license": "Apache-2.0",
+  "homepage": "https://ale.run",
+  "repository": "ale-run/plugin-aws",
+  "scripts": {
+    "dev": "npm run build && cross-env LOG_LEVEL=info aled dev",
+    "build": "rimraf lib && copyfiles -u 1 src/**/*.yaml src/**/*.svg src/**/*.tf src/**/*.tfvars lib/ && tsc"
+  },
+  "dependencies": {
+    "@ale-run/runtime": "latest",
+    "@aws-sdk/client-cloudwatch": "^3.730.0",
+    "@aws-sdk/client-cloudwatch-logs": "^3.767.0",
+    "@aws-sdk/client-ecs": "^3.693.0",
+    "@aws-sdk/client-elastic-load-balancing-v2": "^3.738.0",
+    "@aws-sdk/client-memorydb": "^3.731.1",
+    "@aws-sdk/client-rds": "^3.716.0",
+    "ansi-colors": "^4.1.3",
+    "es6-template-string": "^1.2.0",
+    "node-forge": "^1.3.1",
+    "ssh2": "^1.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.1",
+    "@types/ssh2": "^1.15.4",
+    "copyfiles": "^2.4.1",
+    "cross-env": "^7.0.2",
+    "prettier": "^2.0.4",
+    "rimraf": "^3.0.2",
+    "tslint": "^6.1.3",
+    "typescript": "^5.5.4"
+  }
+}

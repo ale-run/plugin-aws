@@ -1,0 +1,11 @@
+name: aws-ecs
+displayName: AWS ECS
+description: AWS ECS
+apps:
+  - aws-ecs
+categories:
+  - aws
+  - ecs
+config:
+  - name: aws-ecs
+    app: aws-ecs
