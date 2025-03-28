@@ -1,0 +1,83 @@
+name: aws-memory-db
+displayName: AWS MemoryDB
+description: AWS MemoryDB
+main: AwsMemoryDBApp.js
+icon:
+  src: aws.svg
+  background: transparent
+  scale: 1
+  shape: square
+categories:
+  - aws
+  - memoryDB
+schema:
+  type: object
+  properties:
+    engine:
+      title: Database
+      type: string
+      default: Redis 7.1
+      enum:
+        - Redis 6.2
+        - Redis 7.1
+      attrs:
+        placeholder: Select a Database
+        labels:
+          - Redis 6.2
+          - Redis 7.1
+    region:
+      title: Region
+      type: string
+      default: ap-northeast-2
+      enum:
+        - us-east-2
+        - ap-northeast-2
+        - ap-northeast-1
+      attrs:
+        placeholder: Select a Region
+        labels:
+          - United States (Ohio)
+          - Asia Pacific (Seoul)
+          - Asia Pacific (Tokyo)
+    vpcId:
+      title: VPC ID
+      type: string
+      maxLength: 255
+      attrs:
+        placeholder: vpc-123abc456def789
+    instanceClass:
+      title: Instance Type
+      type: string
+      default: db.t4g.small
+      enum:
+        - db.t4g.small
+        - db.t4g.medium
+        - db.r6g.larg
+        - db.r6g.xlarge	
+      attrs:
+        placeholder: Select a instance type
+        labels:
+          - db.t4g.small	(2 vCPUs,	 1.37 GiB, 0.128 Gbps)
+          - db.t4g.medium	(2 vCPUs,	 3.09 GiB, 0.256 Gbps)
+          - db.r6g.large	(2 vCPUs,	13.07 GiB, 0.75 Gbps)
+          - db.r6g.xlarge	(4 vCPUs,	26.32 GiB, 1.25 Gbps)
+    env:
+      title: Environment variables
+      type: array
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+          value:
+            type: string
+      additionalProperties: true
+      attrs:
+        type: env
+  required:
+    #- identifier
+    - engine
+    - region
+    - vpcId
+    - instanceClass
+

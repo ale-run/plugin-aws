@@ -1,0 +1,95 @@
+name: aws-lambda
+displayName: AWS Lambda
+description: AWS Lambda
+main: AwsLambdaApp.js
+icon:
+  src: aws.svg
+  background: transparent
+  scale: 1
+  shape: square
+categories:
+  - aws
+  - lambda
+schema:
+  type: object
+  properties:
+    runtime:
+      title: Runtime Language
+      type: string
+      default: nodejs18.x
+      enum:
+        - java11
+        - python3.9
+        - nodejs18.x
+      attrs:
+        placeholder: Select a Runtime Language
+        labels:
+          - java11
+          - nodejs18.x
+    region:
+      title: Region
+      type: string
+      default: ap-northeast-2
+      enum:
+        - us-east-2
+        - ap-northeast-2
+        - ap-northeast-1
+      attrs:
+        placeholder: Select a Region
+        labels:
+          - United States (Ohio)
+          - Asia Pacific (Seoul)
+          - Asia Pacific (Tokyo)
+    sourceFileName:
+      title: Source File Name
+      type: string
+      attrs:
+        placeholder: Source File Name
+    # sourceCode:
+    #   title: Source Code
+    #   type: string
+    #   default: |
+    #     exports.handler = async function (event, context) {
+    #       console.log("EVENT: \n" + JSON.stringify(event, null, 2));
+    #       const name = event.name || "there"
+    #       const message = `hi '${name}'. we are ale!`
+    #       return message;
+    #     };
+    #   attrs:
+    #     type: textarea
+    #     rows: 10
+    #     placeholder: Source Code
+    inputParameter:
+      title: Input Parameter
+      type: array
+      items:
+        type: map
+        # properties:
+        #   name:
+        #     type: string
+        #   value:
+        #     type: string
+      additionalProperties: true
+      attrs:
+        type: env
+    env:
+      title: Environment variables
+      type: array
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+          value:
+            type: string
+      additionalProperties: true
+      attrs:
+        type: env
+
+  required:
+    - runtime
+    - region
+    - sourceFileName
+    - inputParameter
+context:
+  - git

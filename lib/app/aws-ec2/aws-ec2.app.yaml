@@ -1,0 +1,102 @@
+name: aws-ec2
+displayName: AWS EC2
+description: AWS EC2
+main: AwsEC2App.js
+icon:
+  src: aws.svg
+  background: transparent
+  scale: 1
+  shape: square
+categories:
+  - aws
+  - ec2
+schema:
+  type: object
+  properties:
+    region:
+      title: Region
+      type: string
+      default: ap-northeast-2
+      enum:
+        - us-east-2
+        - ap-northeast-2
+        - ap-northeast-1
+      attrs:
+        placeholder: Select a Region
+        readonly: true
+        labels:
+          - United States (Ohio)
+          - Asia Pacific (Seoul)
+          - Asia Pacific (Tokyo)
+    vpcId:
+      title: VPC ID
+      type: string
+      maxLength: 255
+      attrs:
+        placeholder: vpc-123abc456def789
+        readonly: true
+    subnetTier:
+      title: Access Tier
+      type: string
+      default: private
+      enum:
+        - priavte
+        - public
+      attrs:
+        placeholder: Select a Tier(private or public)
+        readonly: true
+        labels:
+          - priavte
+          - public
+    subnetZone:
+      title: Availability Zone
+      type: string
+      default: a
+      enum:
+        - a
+        - c
+      attrs:
+        placeholder: Select a availability zone
+        readonly: true
+        labels:
+          - a zone
+          - b zone
+    instanceType:
+      title: Instance Type
+      type: string
+      default: t2.micro
+      enum:
+        - t2.micro
+        - t3.micro
+      attrs:
+        placeholder: Select a instance type
+        labels:
+          - t2.micro
+          - t3.micro
+    volumeSize:
+      title: Volume Size
+      type: number
+      default: 8
+      maxLength: 4
+      attrs:
+        placeholder: 8
+    env:
+      title: Environment variables
+      type: array
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+          value:
+            type: string
+      additionalProperties: true
+      attrs:
+        type: env
+  required:
+    - region
+    - vpcId
+    - subnetTier
+    - subnetZone
+    - instanceType
+
