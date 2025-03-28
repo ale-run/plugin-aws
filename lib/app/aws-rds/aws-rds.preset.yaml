@@ -1,0 +1,13 @@
+name: aws-rds
+displayName: AWS RDS
+description: AWS RDS
+apps:
+  - aws-rds
+categories:
+  - aws
+  - rds
+config:
+  - name: aws-rds
+    app: aws-rds
+    options:
+      engine: mysql

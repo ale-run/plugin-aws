@@ -1,0 +1,144 @@
+name: aws-rds
+displayName: AWS RDS
+description: AWS RDS
+main: AwsRDSApp.js
+icon:
+  src: aws.svg
+  background: transparent
+  scale: 1
+  shape: square
+categories:
+  - aws
+  - rds
+schema:
+  type: object
+  properties:
+    # identifier:
+    #   title: Database Instance Name
+    #   type: string
+    #   default: 
+    #   maxLength: 255
+    #   attrs:
+    #     placeholder: database-1
+    engine:
+      title: Database type
+      type: string
+      default: mysql
+      enum:
+        - mysql
+        - mariadb
+      attrs:
+        placeholder: Select a Database type
+        readonly: true
+        labels:
+          - MySQL
+          - MariaDB
+    mysqlVersion:
+      title: Database Version
+      type: string
+      default: 8.0.39
+      enum:
+        - 8.0.39
+        - 8.4.3
+      attrs:
+        placeholder: select Database Version
+        readonly: true
+        if: 'engine === "mysql"'          
+    mariadbVersion:
+      title: Database Version
+      type: string
+      default: 10.11.9
+      enum:
+        - 10.11.9
+        - 11.4.3
+      attrs:
+        placeholder: select Database Version
+        readonly: true
+        if: 'engine === "mariadb"'          
+    region:
+      title: Region
+      type: string
+      default: ap-northeast-2
+      enum:
+        - us-east-2
+        - ap-northeast-2
+        - ap-northeast-1
+      attrs:
+        placeholder: Select a Region
+        readonly: true
+        labels:
+          - United States (Ohio)
+          - Asia Pacific (Seoul)
+          - Asia Pacific (Tokyo)
+    vpcId:
+      title: VPC ID
+      type: string
+      maxLength: 255
+      attrs:
+        placeholder: vpc-123abc456def789
+        readonly: true
+    dbSubnetGroupName:
+      title: DB Subnet GRoup Name
+      type: string
+      default: dev-vpc-mmm
+      maxLength: 255
+      attrs:
+        placeholder: dev-vpc-mmm
+        readonly: true
+    instanceClass:
+      title: Instance Type
+      type: string
+      default: db.t3.micro
+      enum:
+        - db.t3.micro
+        - db.t4g.micro
+        - db.m5d.large
+        - db.m5d.xlarge
+      attrs:
+        placeholder: Select a instance type
+        readonly: true
+        labels:
+          - db.t3.micro  (2 vCPUs,  1G RAM, 2085Mbps )
+          - db.t4g.micro (2 vCPUs,  1G RAM, 2085Mbps )
+          - db.m5d.large (2 vCPUs,  8G RAM, 4750Mbps,  75G SSD ) 
+          - db.m5d.xlarge(4 vCPUs, 16G RAM, 4750Mbps, 150G SSD ) 
+    username:
+      title: Database Username
+      type: string
+      default: admin
+      maxLength: 255
+      attrs:
+        placeholder: Username
+        readonly: true
+    password:
+      title: Database Password
+      type: string
+      maxLength: 255
+      attrs:
+        type: password
+        placeholder: Password
+        secret: password
+        #message: If no password is specified, it will be automatically generated.
+        immutable: true
+    env:
+      title: Environment variables
+      type: array
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+          value:
+            type: string
+      additionalProperties: true
+      attrs:
+        type: env
+  required:
+    #- identifier
+    - engine
+    - region
+    - vpcId
+    - dbSubnetGroupName
+    - instanceClass
+    - password
+

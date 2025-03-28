@@ -1,0 +1,8 @@
+region              = "${region}"
+vpc_id              = "${vpcId}"
+name                = "${identifier}"
+instance_type       = "${instanceType}"
+subnet_tier         = "${subnetTier}"
+subnet_zone         = "${region}${subnetZone}"
+volume_size         = "${volumeSize}"
+instance_state      = "${instanceState}"

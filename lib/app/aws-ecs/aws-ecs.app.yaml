@@ -1,0 +1,108 @@
+name: aws-ecs
+displayName: AWS ECS
+description: AWS ECS
+main: AwsECSApp.js
+icon:
+  src: aws.svg
+  background: transparent
+  scale: 1
+  shape: square
+categories:
+  - aws
+  - ecs
+schema:
+  type: object
+  properties:
+    region:
+      title: Region
+      type: string
+      default: ap-northeast-2
+      enum:
+        - us-east-2
+        - ap-northeast-2
+        - ap-northeast-1
+      attrs:
+        placeholder: Select a Region
+        labels:
+          - United States (Ohio)
+          - Asia Pacific (Seoul)
+          - Asia Pacific (Tokyo)
+        readonly: true
+    vpcId:
+      title: VPC ID
+      type: string
+      maxLength: 255
+      attrs:
+        placeholder: 123abc456def789
+        readonly: true
+    containerName:
+      title: container name
+      type: string
+      default: httpd
+      maxLength: 255
+      attrs:
+        placeholder: httpd
+    containerImage:
+      title: container image
+      type: string
+      default: public.ecr.aws/docker/library/httpd:2.4
+      maxLength: 255
+      attrs:
+        placeholder: public.ecr.aws/docker/library/httpd:2.4
+    containerPort:
+      title: container port
+      type: number
+      default: 80
+      attrs:
+        placeholder: 80
+    volumes:
+      title: volume
+      type: array
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+          path:
+            type: string
+      additionalProperties: true
+      attrs:
+        type: keyvalue
+    desiredCount:
+      title: desired count
+      type: number
+      default: 1
+      attrs:
+        placeholder: 1
+    launchType:
+      title: Launch type
+      type: string
+      default: EC2
+      enum:
+        - EC2
+        - FARGATE
+      attrs:
+        placeholder: Select a Launch type
+        labels:
+          - EC2
+          - FARGATE
+    env:
+      title: Environment variables
+      type: array
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+          value:
+            type: string
+      additionalProperties: true
+      attrs:
+        type: env
+  required:
+    - region
+    - vpcId
+    - containerName
+    - containerImage
+    - containerPort
+

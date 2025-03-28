@@ -1,8 +1,6 @@
 import { AWS } from '../AWS';
 import { Volume } from './Volume';
-
-export class ECS extends AWS {
-
+export declare class ECS extends AWS {
     clusterName: string;
     efsName: string;
     taskRoleName: string;
@@ -13,6 +11,5 @@ export class ECS extends AWS {
     serviceName: string;
     launchType: string;
     desiredCount: number;
-
     environments: any[];
 }
