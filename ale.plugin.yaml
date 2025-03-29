@@ -1,5 +1,5 @@
-name: 'plugin-aws'
-version: '1.0.0'
+name: '@ale-run/plugin-aws'
+version: '0.1.0'
 displayName: AWS
 description: Ale Plugin - AWS
 license: Apache-2.0
