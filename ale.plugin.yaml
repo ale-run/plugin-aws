@@ -1,5 +1,5 @@
-name: 'plugin-aws'
-version: '1.0.0'
+name: '@ale-run/plugin-aws'
+version: '0.1.0'
 displayName: AWS
 description: Ale Plugin - AWS
 license: Apache-2.0
@@ -8,9 +8,9 @@ homepage: https://ale.run
 repository: ale-run/plugin-aws
 main: lib/index.js
 icon:
-  src: aws.svg
+  src: logo.svg
   background: transparent
-  scale: 1
+  scale: 0.85
   shape: square
 schema:
   type: object
