@@ -38,6 +38,9 @@ export default class AwsMemoryDBApp extends AwsAppController<MemoryDB> {
     const array = this.request.options.engine.split(' ', 2);
     let engine = array[0];
     let engineVersion = array[1];
+    const subnets = this.request.options.subnetIds;
+    let subnetIds: string[] = subnets ? subnets.trim().split(',') : [];
+    let subnetGroupName = this.request.options.subnetGroupName?.trim() || '';
     let instanceClass = this.request.options.instanceClass;
     const env = this.resolveEnv(this.request.options?.env);
 
@@ -49,12 +52,15 @@ export default class AwsMemoryDBApp extends AwsAppController<MemoryDB> {
       identifier = prevOptions?.identifier;
       engine = prevOptions?.engine;
       engineVersion = prevOptions?.engineVersion;
+      subnetIds = prevOptions?.subnetIds;
+      subnetGroupName = prevOptions?.subnetGroupName;
       instanceClass = prevOptions?.instanceClass;
     }
 
     if (!region) throw new Error(`options 'Region' is required`);
     if (!vpcId) throw new Error(`options 'VPC ID' is required`);
     if (!engine) throw new Error(`options 'Engine(Database)' is required`);
+    if (!subnetGroupName && !subnets) throw new Error(`options 'DB Subnet GRoup Name' or 'Subnet IDs' is required`);
     if (!instanceClass) throw new Error(`options 'Instance Class' is required`);
 
     const options = {
@@ -63,6 +69,8 @@ export default class AwsMemoryDBApp extends AwsAppController<MemoryDB> {
       identifier,
       engine,
       engineVersion,
+      subnetIds,
+      subnetGroupName,
       instanceClass,
       env
     } as MemoryDB
@@ -146,17 +154,17 @@ export default class AwsMemoryDBApp extends AwsAppController<MemoryDB> {
     } as DeployedWorkload;
     deployedObjects.push(workload);
 
-
-    const domain = {
-      kind: 'domain',
+    // ClusterEndpoint
+    const ingress = {
+      kind: 'ingress',
       name: options.identifier,
+      type: 'tcp',
       entrypoints: [cluster?.ClusterEndpoint?.Address],
-      // service: db_instance.DbInstancePort,
       servicePort: cluster?.ClusterEndpoint?.Port,
       status: 'bound',
       description: cluster?.ClusterEndpoint
-    } as DeployedDomain;
-    deployedObjects.push(domain);
+    } as DeployedIngress;
+    deployedObjects.push(ingress);
 
     return deployedObjects;
   }

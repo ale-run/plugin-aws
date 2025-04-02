@@ -35,32 +35,45 @@ schema:
       attrs:
         placeholder: vpc-123abc456def789
         readonly: true
-    subnetTier:
-      title: Access Tier
+    subnetId:
+      title: Subnet ID
       type: string
-      default: private
-      enum:
-        - priavte
-        - public
+      maxLength: 255
       attrs:
-        placeholder: Select a Tier(private or public)
+        placeholder: subnet-123abc456def789
         readonly: true
-        labels:
-          - priavte
-          - public
-    subnetZone:
-      title: Availability Zone
-      type: string
-      default: a
-      enum:
-        - a
-        - c
+    associatePublicIpAddress:
+      title: Associate Public Ip Address
+      type: boolean
+      default: false
       attrs:
-        placeholder: Select a availability zone
         readonly: true
-        labels:
-          - a zone
-          - b zone
+    # subnetTier:
+    #   title: Access Tier
+    #   type: string
+    #   default: private
+    #   enum:
+    #     - priavte
+    #     - public
+    #   attrs:
+    #     placeholder: Select a Tier(private or public)
+    #     readonly: true
+    #     labels:
+    #       - priavte
+    #       - public
+    # subnetZone:
+    #   title: Availability Zone
+    #   type: string
+    #   default: a
+    #   enum:
+    #     - a
+    #     - c
+    #   attrs:
+    #     placeholder: Select a availability zone
+    #     readonly: true
+    #     labels:
+    #       - a zone
+    #       - b zone
     instanceType:
       title: Instance Type
       type: string
@@ -80,23 +93,24 @@ schema:
       maxLength: 4
       attrs:
         placeholder: 8
-    env:
-      title: Environment variables
-      type: array
-      items:
-        type: object
-        properties:
-          name:
-            type: string
-          value:
-            type: string
-      additionalProperties: true
-      attrs:
-        type: env
+        readonly: true  
+    # env:
+    #   title: Environment variables
+    #   type: array
+    #   items:
+    #     type: object
+    #     properties:
+    #       name:
+    #         type: string
+    #       value:
+    #         type: string
+    #   additionalProperties: true
+    #   attrs:
+    #     type: env
   required:
     - region
     - vpcId
-    - subnetTier
-    - subnetZone
+    - subnetId
+    - associatePublicIp
     - instanceType
 

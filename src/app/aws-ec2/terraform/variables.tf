@@ -28,17 +28,28 @@ variable "instance_type" {
   default     = "t2.micro"
 }
 
-variable "subnet_tier" {
-  description = "subnet tier (public/private)"
+variable "subnet_id" {
+  description = "subnet id"
   type        = string
-  default     = "private"
 }
 
-variable "subnet_zone" {
-  description = "subnet zone (a/b/c...)"
-  type        = string
-  default     = "a"
+variable "associate_public_ip_address" {
+  description = "associate_public_ip_address"
+  type        = bool
+  default     = false
 }
+
+# variable "subnet_tier" {
+#   description = "subnet tier (public/private)"
+#   type        = string
+#   default     = "private"
+# }
+
+# variable "subnet_zone" {
+#   description = "subnet zone (a/b/c...)"
+#   type        = string
+#   default     = "a"
+# }
 
 variable "volume_size" {
   description = "volume size(gb)"

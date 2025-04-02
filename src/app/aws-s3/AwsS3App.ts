@@ -29,7 +29,6 @@ export default class AwsS3App extends AwsAppController<S3> {
 
     // Underscores ('_') are not allowed in Terraform
     let identifier = this.session.refs.scopename + '-' + this.session.refs.projectname + '-' + this.session.refs.stagename + '-' + this.session.refs.deploymentname;
-    const env = this.resolveEnv(this.request.options?.env);
 
     const prevOptions = await this.store.loadObject('option');
     // This setting is fixed and cannot be updated.
@@ -43,7 +42,6 @@ export default class AwsS3App extends AwsAppController<S3> {
     const options = {
       region,
       identifier,
-      env
     } as S3;
 
     await this.store.save('option', options);
@@ -60,14 +58,14 @@ export default class AwsS3App extends AwsAppController<S3> {
   public async saveOutput(stream: Duplex, shell: IShell, options?: S3): Promise<void> {
 
     // output 
-    const bucket_id = await this.getOutput(stream, shell, 'bucket_id');
-    const bucket_domain_name = await this.getOutput(stream, shell, 'bucket_domain_name');
+    const bucketId = await this.getOutput(stream, shell, 'bucket_id');
+    const bucketDomainName = await this.getOutput(stream, shell, 'bucket_domain_name');
 
     // save
     await this.store.save('info',
       {
-        bucket_id,
-        bucket_domain_name,
+        bucketId,
+        bucketDomainName,
         deployed: true,
       }
     );
@@ -102,7 +100,7 @@ export default class AwsS3App extends AwsAppController<S3> {
     const domain = {
       kind: 'domain',
       name: options.identifier,
-      entrypoints: [info?.bucket_domain_name],
+      entrypoints: [info?.bucketDomainName],
       // servicePort: 80,
       status: 'bound',
     } as DeployedDomain;
@@ -126,7 +124,7 @@ export default class AwsS3App extends AwsAppController<S3> {
       metric: 'cloudwatch',
       namespace: 'AWS/S3',
       dimensionName: 'BucketName',
-      dimensionValue: info?.bucket_id,
+      dimensionValue: info?.bucketId,
       identifier: option.identifier
     }
 

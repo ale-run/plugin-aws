@@ -4,7 +4,8 @@ export declare class RDS extends AWS {
 
     engine: string;
     engineVersion: string;
-    dbSubnetGroupName: string;
+    subnetIds: string[];
+    subnetGroupName: string;
     instanceClass: string;
     username: string;
     password: string;

@@ -37,17 +37,19 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
     let identifier = this.session.refs.scopename + '-' + this.session.refs.projectname + '-' + this.session.refs.stagename + '-' + this.session.refs.deploymentname;
     let engine = this.request.options.engine;
     let engineVersion = engine === 'mysql' ? this.request.options.mysqlVersion : this.request.options.mariadbVersion;
-    let dbSubnetGroupName = this.request.options.dbSubnetGroupName;
+    const subnets = this.request.options.subnetIds;
+    let subnetIds: string[] = subnets ? subnets.trim().split(',') : [];
+    let subnetGroupName = this.request.options.subnetGroupName?.trim() || '';
     let instanceClass = this.request.options.instanceClass;
-    let username = this.request.options.username;
-    let password = this.request.options.password;
-
-    // if (password == undefined || password == null) {
-    //   password = uniqid();
+    let username = this.request.options.username?.trim();
+    let password = this.request.options.password?.trim();
+    if (password) {
+      password = Buffer.from(password).toString('base64');
+    }
+    // if (!password) {
+    //    password = uniqid();
     // }
-
-    const env = this.resolveEnv(this.request.options?.env);
-
+    
     const prevOptions = await this.store.loadObject('option');
     // This setting is fixed and cannot be updated.
     if (prevOptions) {
@@ -56,7 +58,8 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
       identifier = prevOptions?.identifier;
       engine = prevOptions?.engine;
       engineVersion = prevOptions?.engineVersion;
-      dbSubnetGroupName = prevOptions?.dbSubnetGroupName;
+      subnetIds = prevOptions?.subnetIds;
+      subnetGroupName = prevOptions?.subnetGroupName;
       instanceClass = prevOptions?.instanceClass;
       username = prevOptions?.username;
       password = prevOptions?.password;
@@ -65,8 +68,10 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
     if (!region) throw new Error(`options 'Region' is required`);
     if (!vpcId) throw new Error(`options 'VPC ID' is required`);
     if (!engine) throw new Error(`options 'Engine(Database)' is required`);
-    if (!dbSubnetGroupName) throw new Error(`options 'DB Subnet Group Name' is required`);
+    if (!subnetGroupName && !subnets) throw new Error(`options 'DB Subnet GRoup Name' or 'Subnet IDs' is required`);
     if (!instanceClass) throw new Error(`options 'Instance Class' is required`);
+    if (!username) throw new Error(`options 'Database Username' is required`);
+    if (!password) throw new Error(`options 'Database Password' is required`);
 
     const options = {
       region,
@@ -74,12 +79,11 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
       identifier,
       engine,
       engineVersion,
-      dbSubnetGroupName,
+      subnetIds,
+      subnetGroupName,
       instanceClass,
       username,
       password,
-      // state: STATE.stopped,
-      env
     } as RDS;
 
     await this.store.save('option', options);
@@ -106,12 +110,12 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
    */
   public async saveDescribe(options: RDS) {
 
-    const db_instance: DBInstance = await this.rdsApi.describe(options.region, options.identifier);
+    const dbInstance: DBInstance = await this.rdsApi.describe(options.region, options.identifier);
 
     await this.store.save('info',
       {
-        db_instance,
-        deployed: (db_instance.DBInstanceStatus === 'available') ? true : false,
+        dbInstance,
+        deployed: (dbInstance.DBInstanceStatus === 'available') ? true : false,
       }
     );
   
@@ -167,7 +171,7 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
     logger.info(`[LIST]`, this.request);
     logger.info(`[LIST][info]`, info);
 
-    const db_instance: DBInstance = info?.db_instance;
+    const dbInstance: DBInstance = info?.dbInstance;
 
     // workload
     const workload = {
@@ -178,9 +182,9 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
       ready: info.deployed ? 1 : 0,
       instances: [
         {
-          id: db_instance.DBInstanceIdentifier,
-          status: db_instance.DBInstanceStatus,
-          started: new Date(db_instance.InstanceCreateTime),
+          id: dbInstance.DBInstanceIdentifier,
+          status: dbInstance.DBInstanceStatus,
+          started: new Date(dbInstance.InstanceCreateTime),
           // ip: 
         }
       ]
@@ -188,16 +192,16 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
     deployedObjects.push(workload);
 
 
-    const domain = {
-      kind: 'domain',
+    const ingress = {
+      kind: 'ingress',
       name: options.identifier,
-      entrypoints: [db_instance.Endpoint?.Address],
-      // service: db_instance.DbInstancePort,
-      servicePort: db_instance.Endpoint?.Port,
+      type: 'tcp',
+      entrypoints: [dbInstance.Endpoint?.Address],
+      servicePort: dbInstance.Endpoint?.Port,
       status: 'bound',
-      description: db_instance.Endpoint
-    } as DeployedDomain;
-    deployedObjects.push(domain);
+      description: dbInstance.Endpoint
+    } as DeployedIngress;
+    deployedObjects.push(ingress);
 
     return deployedObjects;
 
@@ -217,8 +221,8 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
       metric: 'cloudwatch',
       namespace: 'AWS/RDS',
       dimensionName: 'DBInstanceIdentifier',
-      dimensionValue: info?.db_instance?.DBInstanceIdentifier,
-      identifier: option.identifier
+      dimensionValue: info?.dbInstance?.DBInstanceIdentifier,
+      identifier: option?.identifier
     }
 
     return {

@@ -84,24 +84,24 @@ export default class AwsLambdaApp extends AwsAppController<Lambda> {
   public async saveOutput(stream: Duplex, shell: IShell, options?: Lambda): Promise<void> {
 
     // output 
-    const function_name = await this.getOutput(stream, shell, 'function_name');
+    const functionName = await this.getOutput(stream, shell, 'function_name');
     const runtime = await this.getOutput(stream, shell, 'runtime');
-    const last_modified = await this.getOutput(stream, shell, 'last_modified');
-    const log_group_arn = await this.getOutput(stream, shell, 'log_group_arn');
-    const function_url = await this.getOutput(stream, shell, 'function_url');
-    const authorization_type = await this.getOutput(stream, shell, 'authorization_type');
+    const lastModified = await this.getOutput(stream, shell, 'last_modified');
+    const logGroupArn = await this.getOutput(stream, shell, 'log_group_arn');
+    const functionUrl = await this.getOutput(stream, shell, 'function_url');
+    const authorizationType = await this.getOutput(stream, shell, 'authorization_type');
 
     const result = await this.getOutput(stream, shell, 'result');
 
     // save
     await this.store.save('info',
       {
-        function_name,
+        functionName,
         runtime,
-        last_modified,
-        log_group_arn,
-        function_url,
-        authorization_type,
+        lastModified,
+        logGroupArn,
+        functionUrl,
+        authorizationType,
         result,
         deployed: true,
       }
@@ -210,7 +210,7 @@ export default class AwsLambdaApp extends AwsAppController<Lambda> {
     }
 
     const region = op?.region;
-    const arn = info?.log_group_arn;
+    const arn = info?.logGroupArn;
     
     const logApi = new AwsCloudwatchLogApi(region, arn, stream);
     await logApi.getLogs();
@@ -237,8 +237,8 @@ export default class AwsLambdaApp extends AwsAppController<Lambda> {
       name:         options.identifier,
       displayName:  options.identifier,
       // runtime:      info?.runtime,
-      // lastModified: info?.last_modified,
-      description:  {runtime: info?.runtime, lastModified: info?.last_modified},
+      // lastModified: info?.lastModified,
+      description:  {runtime: info?.runtime, lastModified: info?.lastModified},
       replicas: info?.deployed ? 1 : 0,
       ready: info?.deployed ? 1 : 0
     } as DeployedWorkload;
@@ -248,10 +248,10 @@ export default class AwsLambdaApp extends AwsAppController<Lambda> {
     // function url 정보
     const ingress: DeployedIngress = {
       kind:         'ingress',
-      name:         info?.function_name,
+      name:         info?.functionName,
       type:         'https',
-      entrypoints: [info?.function_url],
-      description: {authorizationType: info?.authorization_type}
+      entrypoints: [info?.functionUrl],
+      description: {authorizationType: info?.authorizationType}
     }
     deployedObjects.push(ingress);
 
@@ -266,6 +266,7 @@ export default class AwsLambdaApp extends AwsAppController<Lambda> {
   public async getStat(): Promise<DeploymentStat> {
 
     const info = await this.store.loadObject('info');
+    if (!info) return;
     const option = await this.store.loadObject('option');
 
     const statObject = {
@@ -273,8 +274,8 @@ export default class AwsLambdaApp extends AwsAppController<Lambda> {
       metric: 'cloudwatch',
       namespace: 'AWS/Lambda',
       dimensionName: 'FunctionName',
-      dimensionValue: info?.function_name,
-      identifier: option.identifier
+      dimensionValue: info?.functionName,
+      identifier: option?.identifier
     }
 
 

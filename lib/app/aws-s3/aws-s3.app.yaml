@@ -27,18 +27,18 @@ schema:
           - United States (Ohio)
           - Asia Pacific (Seoul)
           - Asia Pacific (Tokyo)
-    env:
-      title: Environment variables
-      type: array
-      items:
-        type: object
-        properties:
-          name:
-            type: string
-          value:
-            type: string
-      additionalProperties: true
-      attrs:
-        type: env
+    # env:
+    #   title: Environment variables
+    #   type: array
+    #   items:
+    #     type: object
+    #     properties:
+    #       name:
+    #         type: string
+    #       value:
+    #         type: string
+    #   additionalProperties: true
+    #   attrs:
+    #     type: env
   required:
     #- region

@@ -16,7 +16,12 @@ variable "vpc_id" {
   #default     = ""
 }
 
-variable "db_subnet_group_name" {
+variable "subnet_ids" {
+  description = "List of subnet IDs"
+  type        = list(string)
+}
+
+variable "subnet_group_name" {
   description = "database subnet group name"
   type        = string
   #default     = ""
@@ -77,14 +82,12 @@ variable "max_allocated_storage" {
 variable "username" {
   description = "Username for the master DB user"
   type        = string
-  default     = "admin"
 }
 
 variable "password" {
   description = "Password for the master DB user"
   type        = string
   sensitive   = true
-  default     = "Admin12#$"
 }
 
 variable "state" {

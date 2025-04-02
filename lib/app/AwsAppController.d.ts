@@ -1,4 +1,4 @@
-import { AnyObject, AppController, IDataStore, IShell, MetricData, MetricFilter, MetricItem, Plugin } from '@ale-run/runtime';
+import { AnyObject, AppController, IDataStore, IShell, Plugin } from '@ale-run/runtime';
 import { AWS } from './AWS';
 import { Duplex } from 'stream';
 import { AwsCloudwatchApi } from './AwsCloudwatchApi';
@@ -41,24 +41,12 @@ export declare abstract class AwsAppController<T extends AWS> extends AppControl
      */
     destroy(): Promise<void>;
     /**
-     * AppController.getMetricItems
-     * @returns
-     */
-    getMetricItems(): Promise<MetricItem[]>;
-    /**
      * AppController.getMetric
      * @param name
      * @param options
      * @returns
      */
     getStatObject(metric?: string): Promise<AnyObject | undefined>;
-    /**
-     * AppController.getMetric
-     * @param name
-     * @param options
-     * @returns
-     */
-    getMetric(name: string, options: MetricFilter): Promise<MetricData>;
     /**
      * terraform plan
      * @param stream

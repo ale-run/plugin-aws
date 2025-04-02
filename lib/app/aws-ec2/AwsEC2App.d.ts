@@ -1,4 +1,4 @@
-import { DeployedObject, IShell, DeploymentStat, MetricItem, AnyObject } from '@ale-run/runtime';
+import { DeployedObject, IShell, DeploymentStat, MetricItem, MetricData, MetricFilter, AnyObject } from '@ale-run/runtime';
 import { AwsAppController } from '../AwsAppController';
 import { Duplex, Readable, Writable } from 'stream';
 import { EC2 } from './EC2';
@@ -59,4 +59,11 @@ export default class AwsEC2App extends AwsAppController<EC2> {
      * @returns
      */
     getMetricItems(): Promise<MetricItem[]>;
+    /**
+     * AppController.getMetric
+     * @param name
+     * @param options
+     * @returns
+     */
+    getMetric(name: string, options: MetricFilter): Promise<MetricData>;
 }

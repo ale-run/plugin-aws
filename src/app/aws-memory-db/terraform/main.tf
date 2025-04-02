@@ -2,21 +2,29 @@ data "aws_vpc" "vpc" {
   id = var.vpc_id
 }
 
-# [중요]VPC내 database subnet이 존재해야한다
-data "aws_subnets" "database" {
-  filter {
-    name   = "vpc-id"
-    values = [var.vpc_id]
-  }
-
-  tags = {
-    Tier = "database"
-  }
+# db_subnet_group 
+data "aws_memorydb_subnet_group" "subnet_group" {
+  count  = var.subnet_group_name != "" ? 1 : 0
+  name   = var.subnet_group_name
 }
+
+# data "aws_subnets" "database" {
+#   filter {
+#     name   = "vpc-id"
+#     values = [var.vpc_id]
+#   }
+
+#   tags = {
+#     Tier = "database"
+#   }
+# }
 
 locals {
 
-  db_subnet_ids = data.aws_subnets.database.ids
+  create_subnet_group  = var.subnet_group_name != "" ? false : true
+  subnet_ids           = var.subnet_group_name != "" ? data.aws_memorydb_subnet_group.subnet_group[0].subnet_ids : var.subnet_ids
+  subnet_group_name    = var.subnet_group_name != "" ? var.subnet_group_name : var.name
+
 
   version              = split(".", var.engine_version)
   parameter_group_name = "default.memorydb-redis${local.version[0]}"
@@ -55,10 +63,11 @@ module "memory-db" {
   tls_enabled = true #default
 
   # Subnet group
-  create_subnet_group      = true #default:true
-  subnet_group_name        = var.subnet_group_name
-  subnet_group_description = var.subnet_group_name
-  subnet_ids               = local.db_subnet_ids
+  create_subnet_group      = local.create_subnet_group
+  subnet_ids               = local.subnet_ids
+  subnet_group_name        = local.subnet_group_name
+  subnet_group_description = local.subnet_group_name
+  
   # subnet_group_tags = {
   # }
 

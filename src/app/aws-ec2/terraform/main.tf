@@ -9,22 +9,6 @@ provider "aws" {
   }  
 }
 
-locals {
-  associate_public_ip_address = (var.subnet_tier == "public") ? true : false
-}
-
-
-# subnetId
-data "aws_subnet" "subnet" {
-
-  vpc_id = var.vpc_id
-  availability_zone = var.subnet_zone
-
-  tags = {
-    Tier = var.subnet_tier
-  }
-}
-
 # data "aws_ami" "ubuntu" {
 #   most_recent = true
 
@@ -100,7 +84,7 @@ resource "aws_instance" "instance" {
   key_name = aws_key_pair.key_pair.key_name    
   
   #subnetId (private/public a, b)
-  subnet_id = data.aws_subnet.subnet.id
+  subnet_id = var.subnet_id
   
   #보안그룹
   vpc_security_group_ids = [aws_security_group.security_group.id]
@@ -112,7 +96,7 @@ resource "aws_instance" "instance" {
   }
 
   #publicIP 생성여부
-  associate_public_ip_address = local.associate_public_ip_address
+  associate_public_ip_address = var.associate_public_ip_address
 
   # tags = {
   #   Name = var.name

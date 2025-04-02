@@ -65,7 +65,7 @@ export abstract class AwsAppController<T extends AWS> extends AppController {
    */
   public async start(): Promise<void> {
 
-    logger.info(`[START]`, this.request);
+    logger.info(`[START]`, this.request.name);
 
     const options = await this.readOptions();
     // options.instanceState = SERVICE_STATUS.running
@@ -82,10 +82,9 @@ export abstract class AwsAppController<T extends AWS> extends AppController {
    */
   public async stop(): Promise<void> {
 
-    logger.info(`[STOP]`, this.request);
+    logger.info(`[STOP]`, this.request.name);
 
-    const options = await this.readOptions();
-    // options.instanceState = SERVICE_STATUS.stopping
+    const options = await this.store.loadObject('option') as T;
     await this.runApply(options)
 
     logger.info(`[STOP]Done`, this.request);
@@ -99,46 +98,13 @@ export abstract class AwsAppController<T extends AWS> extends AppController {
    */
   public async destroy(): Promise<void> {
 
-    logger.info(`[DESTROY]`, this.request);
-
-    const options = await this.readOptions();
-    // options.instanceState = SERVICE_STATUS.stopped
+    logger.info(`[DESTROY]`, this.request.name);
+    
+    const options = await this.store.loadObject('option') as T;
     const output = await this.runDestroy(options);
 
     logger.info(`[DESTROY]Done`, this.request);
 
-  }
-
-
-  /**
-   * AppController.getMetricItems
-   * @returns 
-   */
-  public async getMetricItems(): Promise<MetricItem[]> {
-
-    return [
-      {
-        name: 'CPUUtilization',
-        title: 'CPUUtilization',
-        unit: '%'
-      },
-      {
-        name: 'NetworkIn',
-        title: 'NetworkIn',
-        unit: 'Byte',
-        // options: {
-        //   mode: 'sum'
-        // }
-      },
-      {
-        name: 'NetworkOut',
-        title: 'NetworkOut',
-        unit: 'Byte',
-        // options: {
-        //   mode: 'sum'
-        // }
-      }
-    ]
   }
 
   /**
@@ -166,45 +132,6 @@ export abstract class AwsAppController<T extends AWS> extends AppController {
 
     logger.info(`[METRIC][${this.deployment.name}] cloudwatch object=`, object);
     return object;
-  }
-
-  /**
-   * AppController.getMetric
-   * @param name 
-   * @param options 
-   * @returns 
-   */
-  public async getMetric(name: string, options: MetricFilter): Promise<MetricData> {
-
-    const metricObject = await this.getStatObject();
-    if (metricObject === undefined) return;
-
-    let metricData = null;
-
-    switch (name) {
-      case 'CPUUtilization':
-        metricData = await this.cloudwatchApi.getCPUUtilization(metricObject, options);
-        break;
-      case 'NetworkIn':
-        metricData = await this.cloudwatchApi.getNetworkIn(metricObject, options);
-        break;
-      case 'NetworkOut':
-        metricData = await this.cloudwatchApi.getNetworkOut(metricObject, options);
-        break;
-      default:
-        logger.warn(`[METRIC][${this.deployment.name}] undefined metric item '${name}'`);
-        return;
-    }
-
-    logger.info(`[METRIC]`, metricData);
-
-    // total: number;
-    // dates: Date[];
-    // series?: MetricItemSeries[];
-    // values?: number[];
-    // summary?: AnyObject[];
-
-    return metricData;
   }
 
   /**
@@ -364,8 +291,8 @@ export abstract class AwsAppController<T extends AWS> extends AppController {
     stream.write(`- create file "terraform.tfvars"\n`);
     const tfVarScript = template(fs.readFileSync(path.join(dirname, TFVARS_FILE)).toString(), options);
     await shell.writeFile(`terraform.tfvars`, tfVarScript);
-    stream.write(`${tfVarScript}\n`);
-    logger.info(`tfVars=`, tfVarScript);
+    stream.write(`${tfVarScript}\n`); // sentitive values may be exposed
+    // logger.info(`tfVars=`, tfVarScript); //sentitive values may be exposed
 
   }
 

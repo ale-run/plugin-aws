@@ -2,17 +2,30 @@ data "aws_vpc" "vpc" {
   id = var.vpc_id
 }
 
-# db_subnet_group 목록을 가져오는 방법을 찾을 수 없음
-data "aws_db_subnet_group" "db_subnet_group" {
-  name   = var.db_subnet_group_name
-  #vpc_id = var.vpc_id
+# db_subnet_group 
+data "aws_db_subnet_group" "subnet_group" {
+  count  = var.subnet_group_name != "" ? 1 : 0
+  name   = var.subnet_group_name
 }
+
+# subnet Ids
+# data "aws_subnets" "database" {
+#   filter {
+#     name   = "vpc-id"
+#     values = [var.vpc_id]
+#   }
+#   tags = {
+#     Tier = "database"
+#   }
+# }
 
 locals {
 
   vpc_cidr_block       = data.aws_vpc.vpc.cidr_block    
-  db_subnet_ids       = data.aws_db_subnet_group.db_subnet_group.subnet_ids
-  //db_subnet_group_name = data.aws_db_subnet_group.db_subnet_group.name
+  
+  create_subnet_group  = var.subnet_group_name != "" ? false : true
+  subnet_ids           = var.subnet_group_name != "" ? data.aws_db_subnet_group.subnet_group[0].subnet_ids : var.subnet_ids
+  subnet_group_name    = var.subnet_group_name != "" ? var.subnet_group_name : var.identifier
   
   #engine               = "mysql"
   version              = split(".", var.engine_version)
@@ -29,6 +42,7 @@ provider "aws" {
     }
   }
 }
+
 
 ################################################################################
 # RDS Module
@@ -65,14 +79,15 @@ module "db" {
   username = var.username
   # Set to true to allow RDS to manage the master user password in Secrets Manager (Default: true)
   manage_master_user_password = false
-  password                    = var.password
+  password                    =  base64decode(var.password)
   port                        = var.port
 
   # Specifies if the RDS instance is multi-AZ
   # Creates a standby in a different Availability Zone
   multi_az               = false
-  subnet_ids             = local.db_subnet_ids
-  db_subnet_group_name   = var.db_subnet_group_name
+  create_db_subnet_group = local.create_subnet_group
+  subnet_ids             = local.subnet_ids
+  db_subnet_group_name   = local.subnet_group_name
   vpc_security_group_ids = [module.security_group.security_group_id]
 
   # The window to perform maintenance in.

@@ -77,13 +77,19 @@ schema:
       attrs:
         placeholder: vpc-123abc456def789
         readonly: true
-    dbSubnetGroupName:
-      title: DB Subnet GRoup Name
+    subnetIds:
+      title: Subnet IDs (Input the subnet Id separated by comma ',')
       type: string
-      default: dev-vpc-mmm
       maxLength: 255
       attrs:
-        placeholder: dev-vpc-mmm
+        placeholder: subnet-123abc456def789,subnet-123def456abc789
+        readonly: true
+    subnetGroupName:
+      title: DB Subnet GRoup Name
+      type: string
+      maxLength: 255
+      attrs:
+        placeholder: Existing subnet_group_name
         readonly: true
     instanceClass:
       title: Instance Type
@@ -120,25 +126,28 @@ schema:
         secret: password
         #message: If no password is specified, it will be automatically generated.
         immutable: true
-    env:
-      title: Environment variables
-      type: array
-      items:
-        type: object
-        properties:
-          name:
-            type: string
-          value:
-            type: string
-      additionalProperties: true
-      attrs:
-        type: env
+    # env:
+    #   title: Environment variables
+    #   type: array
+    #   items:
+    #     type: object
+    #     properties:
+    #       name:
+    #         type: string
+    #       value:
+    #         type: string
+    #   additionalProperties: true
+    #   attrs:
+    #     type: env
   required:
     #- identifier
     - engine
+    - mysqlVersion
+    - mariadbVersion
     - region
     - vpcId
-    - dbSubnetGroupName
+    - subnetIds
     - instanceClass
+    - username
     - password
 

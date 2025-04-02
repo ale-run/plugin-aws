@@ -26,17 +26,18 @@ export default class AwsEC2App extends AwsAppController<EC2> {
   public async readOptions(): Promise<EC2> {
 
     // If the user didn't provide a region value in request.options, use the region value from plugin?.options as a fallback.
-    let region = this.request.options.region.trim() || this.plugin?.options?.REGION;
+    let region = this.request.options.region?.trim() || this.plugin?.options?.REGION;
     // If the user didn't provide a vpcId value in request.options, use the vpcId value from plugin?.options as a fallback.
-    let vpcId = this.request.options.vpcId.trim() || this.plugin?.options?.VPC_ID;
+    let vpcId = this.request.options.vpcId?.trim() || this.plugin?.options?.VPC_ID;
 
     // Underscores ('_') are not allowed in Terraform
     let identifier = this.session.refs.scopename + '-' + this.session.refs.projectname + '-' + this.session.refs.stagename + '-' + this.session.refs.deploymentname;
+    let subnetId = this.request.options.subnetId;
+    // let subnetTier = this.request.options.subnetTier.trim();
+    // let subnetZone = this.request.options.subnetZone.trim();
+    const associatePublicIpAddress = this.request.options.associatePublicIpAddress;
     const instanceType = this.request.options.instanceType.trim();
-    let subnetTier = this.request.options.subnetTier.trim();
-    let subnetZone = this.request.options.subnetZone.trim();
     const volumeSize = this.request.options.volumeSize;
-    const env = this.resolveEnv(this.request.options?.env);
 
     const prevOptions = await this.store.loadObject('option');
     // This setting is fixed and cannot be updated.
@@ -44,26 +45,27 @@ export default class AwsEC2App extends AwsAppController<EC2> {
       region = prevOptions?.region;
       vpcId = prevOptions?.vpcId;
       identifier = prevOptions?.identifier;
-      subnetTier = prevOptions?.subnetTier;
-      subnetZone = prevOptions?.subnetZone;
+      subnetId = prevOptions?.subnetId;
+      // subnetTier = prevOptions?.subnetTier;
+      // subnetZone = prevOptions?.subnetZone;
     }
 
     if (!region) throw new Error(`options 'Region' is required`);
     if (!vpcId) throw new Error(`options 'VPC ID' is required`);
-    if (!instanceType) throw new Error(`options 'Instance Type' is required`);
-    if (!subnetTier) throw new Error(`options 'Tier(public/private)' is required`);
-    if (!subnetZone) throw new Error(`options 'Zone(a/b/c)' is required`);
+    if (!subnetId) throw new Error(`options 'Subnet ID' is required`);
+    // if (!subnetTier) throw new Error(`options 'Tier(public/private)' is required`);
+    // if (!subnetZone) throw new Error(`options 'Zone(a/b/c)' is required`);
+    
 
     const options = {
       region,
       vpcId,
       identifier,
+      subnetId,
+      associatePublicIpAddress,
       instanceType,
-      subnetTier,
-      subnetZone,
       volumeSize,
       instanceState: SERVICE_STATUS.running,
-      env
     } as EC2;
 
     await this.store.save('option', options);
@@ -84,27 +86,27 @@ export default class AwsEC2App extends AwsAppController<EC2> {
     await this.savePem(shell);
 
     // output 
-    const instance_id = await this.getOutput(stream, shell, 'instance_id');
-    const instance_state = await this.getOutput(stream, shell, 'instance_state');
-    const instance_type = await this.getOutput(stream, shell, 'instance_type');
-    const private_dns = await this.getOutput(stream, shell, 'private_dns');
-    const private_ip = await this.getOutput(stream, shell, 'private_ip');
-    const launch_time = await this.getOutput(stream, shell, 'launch_time');
-    const public_dns = await this.getOutput(stream, shell, 'public_dns');
-    const public_ip = await this.getOutput(stream, shell, 'public_ip');
+    const instanceId = await this.getOutput(stream, shell, 'instance_id');
+    const instanceState = await this.getOutput(stream, shell, 'instance_state');
+    const instanceType = await this.getOutput(stream, shell, 'instance_type');
+    const privateDns = await this.getOutput(stream, shell, 'private_dns');
+    const privateIp = await this.getOutput(stream, shell, 'private_ip');
+    const launchTime = await this.getOutput(stream, shell, 'launch_time');
+    const publicDns = await this.getOutput(stream, shell, 'public_dns');
+    const publicIp = await this.getOutput(stream, shell, 'public_ip');
     const rootBlockDevice = await this.getOutput(stream, shell, 'root_block_device');
     // save info
     await this.store.save('info',
       {
-        instance_id,
-        instance_state,
-        deployed: (instance_state === 'running') ? true : false,
-        instance_type,
-        private_dns,
-        private_ip,
-        launch_time,
-        public_dns,
-        public_ip,
+        instanceId,
+        instanceState,
+        deployed: (instanceState === 'running') ? true : false,
+        instanceType,
+        privateDns,
+        privateIp,
+        launchTime,
+        publicDns,
+        publicIp,
         rootBlockDevice
       }
     );
@@ -143,14 +145,14 @@ export default class AwsEC2App extends AwsAppController<EC2> {
 
     const info = await this.store.loadObject('info');
     const pem = await this.store.load('pem');
-    console.log(info.public_dns)
 
     const config: ConnectConfig = {
-      host: info?.public_dns,
+      host: info?.publicDns || info?.privateDns,
       port: 22,
       username: 'ubuntu',
       // privateKey: fs.readFileSync('/path/to/your/private/key')
-      privateKey: pem
+      privateKey: pem,
+      readyTimeout: 10000 
     };
 
     return config;
@@ -230,6 +232,18 @@ export default class AwsEC2App extends AwsAppController<EC2> {
       });
     });
 
+    client.on('error', (error) => {
+      logger.error(`[TERMINAL]Error`, error)
+      stderr.write(error.message);
+      client.end();
+    });
+
+    client.on('timeout', () => {
+      logger.error('[TERMINAL]timeout')
+      stderr.write('connection timeout');
+      client.end();
+    });
+
     return {
       stdin,
       stdout,
@@ -263,23 +277,37 @@ export default class AwsEC2App extends AwsAppController<EC2> {
       ready: info?.deployed ? 1 : 0,
       instances: [
         {
-          id: info?.instance_id,
-          status: info?.instance_state,
+          id: info?.instanceId,
+          status: info?.instanceState,
           started: new Date(info?.start),
-          ip: info?.private_dns
+          ip: info?.privateDns
         }
       ]
     } as DeployedWorkload;
     deployedObjects.push(workload);
 
-    // privateIP 1
+    // publicIP
+    if (info?.publicDns) {
+      const ingress = {
+        kind: 'ingress',
+        name: 'public',
+        type: 'tcp',
+        entrypoints: [info?.publicDns],
+        servicePort: 22,
+        status: 'bound',
+        // description: 'description'
+      } as DeployedIngress;
+      deployedObjects.push(ingress);
+    }
+
+    // privateIP
     const expose = {
       kind: 'expose',
       name: 'private',
-      hostname: info?.private_dns,
+      hostname: info?.privateDns,
       port: 22,
       protocol: 'tcp',
-      description: 'description'
+      // description: 'description'
     } as DeployedExpose;
     deployedObjects.push(expose);
 
@@ -334,7 +362,7 @@ export default class AwsEC2App extends AwsAppController<EC2> {
       metric: 'cloudwatch',
       namespace: 'AWS/EC2',
       dimensionName: 'InstanceId',
-      dimensionValue: info?.instance_id,
+      dimensionValue: info?.instanceId,
       identifier: option.identifier
     }
 
@@ -358,7 +386,7 @@ export default class AwsEC2App extends AwsAppController<EC2> {
         : null,
       exposes: [],
       objects: [statObject],
-      since: new Date(info?.launch_time)
+      since: new Date(info?.launchTime)
     };
   }
 
@@ -392,6 +420,46 @@ export default class AwsEC2App extends AwsAppController<EC2> {
       }
     ]
   }
+
+  /** 
+   * AppController.getMetric
+   * @param name 
+   * @param options 
+   * @returns 
+   */
+  public async getMetric(name: string, options: MetricFilter): Promise<MetricData> {
+
+    const metricObject = await this.getStatObject();
+    if (metricObject === undefined) return;
+
+    let metricData = null;
+
+    switch (name) {
+      case 'CPUUtilization':
+        metricData = await this.cloudwatchApi.getCPUUtilization(metricObject, options);
+        break;
+      case 'NetworkIn':
+        metricData = await this.cloudwatchApi.getNetworkIn(metricObject, options);
+        break;
+      case 'NetworkOut':
+        metricData = await this.cloudwatchApi.getNetworkOut(metricObject, options);
+        break;
+      default:
+        logger.warn(`[METRIC][${this.deployment.name}] undefined metric item '${name}'`);
+        return;
+    }
+
+    logger.info(`[METRIC]`, metricData);
+
+    // total: number;
+    // dates: Date[];
+    // series?: MetricItemSeries[];
+    // values?: number[];
+    // summary?: AnyObject[];
+
+    return metricData;
+  }
+
 
 }
 
