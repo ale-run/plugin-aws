@@ -167,15 +167,10 @@ export default class AwsECSApp extends AwsAppController<ECS> {
     }
     // task
     let task: Task;
-    if (options.desiredCount === 0) {
-      // task = await this.ecsApi.describeTask(options.region, options.clusterName, options.serviceName);
-    } else {
+    if (options.desiredCount > 0) {
       task = await this.ecsApi.describeTaskNWaiting(options.region, options.clusterName, options.serviceName);
     }
 
-    console.log('====================================================');
-    console.log(task);
-    console.log(taskDefinition);
     const ecsInfo: ECSInfo =
     {
       desiredCount: service?.desiredCount,
@@ -183,9 +178,8 @@ export default class AwsECSApp extends AwsAppController<ECS> {
       taskDefinition,
       loadBalancer,
       task,
-      deployed: (options.desiredCount > 0) ? true : false
     }
-    logger.info(ecsInfo);
+
     await this.store.save('info', ecsInfo);
   }
 
@@ -196,13 +190,16 @@ export default class AwsECSApp extends AwsAppController<ECS> {
    */
   public async stop(): Promise<void> {
 
-    logger.info(`[STOP]`, this.request);
+    logger.info(`[STOP]`, this.request.name);
+    await this.store.save('status', SERVICE_STATUS.stopping);
 
-    const options: ECS = await this.readOptions();
+    const options = await this.store.loadObject('option') as ECS;
+    
     options.desiredCount = 0;
     await this.runApply(options)
 
-    logger.info(`[STOP]Done`, this.request);
+    logger.info(`[STOP]Done`, this.request.name);
+    await this.store.save('status', SERVICE_STATUS.stopped);
     await this.saveDescribe(options);
   }
 
@@ -222,13 +219,12 @@ export default class AwsECSApp extends AwsAppController<ECS> {
     const taskDefinition: TaskDefinition = info.taskDefinition;
     const loadBalancer: LoadBalancer = info.loadBalancer;
 
-    const newTask = await this.ecsApi.describeTask(options.region, options.clusterName, options.serviceName);
-    info.task = newTask || info.task;
-    const task: Task = info.task;
+    let task:Task;
+    if (info.desiredCount > 0) {
+      task = await this.ecsApi.describeTask(options.region, options.clusterName, options.serviceName);
+      info.task = task;
+    }
      
-    logger.debug(`[LIST]`, this.request);
-    logger.debug(`[LIST]info.task`, info?.task);
-
     // workload
     const workload = {
       kind: 'workload',
@@ -258,7 +254,6 @@ export default class AwsECSApp extends AwsAppController<ECS> {
         } as DeployedWorkloadInstance,
       ]
     } as DeployedWorkload;
-    logger.debug(workload);
     deployedObjects.push(workload);
 
 
@@ -274,7 +269,6 @@ export default class AwsECSApp extends AwsAppController<ECS> {
       // servicePort?: number;
       description: loadBalancer
     } as DeployedIngress;
-    logger.debug(ingress);
     deployedObjects.push(ingress);
 
     // volume
@@ -293,7 +287,6 @@ export default class AwsECSApp extends AwsAppController<ECS> {
         // accessPointId: volume?.efsVolumeConfiguration.authorizationConfig.accessPointId,
         description: volume 
       } as DeployedVolume
-      logger.debug(v);
       deployedObjects.push(v);
     }
 
@@ -307,10 +300,10 @@ export default class AwsECSApp extends AwsAppController<ECS> {
    */
   public async getStat(): Promise<DeploymentStat> {
 
-    const info = await this.store.loadObject('info');
-    const option = await this.store.loadObject('option');
-    if (!info) return;
-
+    const info = await this.store.loadObject('info') as ECSInfo;
+    const option = await this.store.loadObject('option') as ECS;
+    const status = await this.store.load('status');
+    
     const regex = new RegExp('loadbalancer/(app/.*)');
     const match = regex.exec(info?.loadBalancer?.LoadBalancerArn);
     const loadBalancer = match[1];
@@ -335,27 +328,28 @@ export default class AwsECSApp extends AwsAppController<ECS> {
       identifier: option?.identifier
     }
 
+    
     return {
-      status: info?.deployed ? SERVICE_STATUS.running : SERVICE_STATUS.stopped,
-      cpu: +info?.cpu || 0,
-      memory: +info?.cpu || 0,
-      disk: +info?.cpu || 0,
-      replicas: info?.deployed ? 1 : 0,
-      ready: info?.deployed ? 1 : 0,
-      available: info?.deployed ? 1 : 0,
-      unavailable: 0,
-      entrypoints: info?.endpoint
-        ?
-        [
-          {
-            link: info.endpoint,
-            type: 'tcp'
-          }
-        ]
-        : null,
-      exposes: [],
+      status: SERVICE_STATUS[status],
       objects: [statObject, elbObject],
-      // since: new Date(info.launch_time)
+      // cpu: +info?.cpu || 0,
+      // memory: +info?.memory || 0,
+      // disk: +info?.disk || 0,
+      // replicas: status === 'running' ? 1 : 0,
+      // ready: status === 'running' ? 1 : 0,
+      // available: status === 'running' ? 1 : 0,
+      // unavailable: status === 'running' ? 0 : 1,
+      // entrypoints: info?.endpoint
+      //   ?
+      //   [
+      //     {
+      //       link: info.endpoint,
+      //       type: 'tcp'
+      //     }
+      //   ]
+      //   : null,
+      // exposes: [],
+      // since: new Date(info?.launch_time)
     };
   }
 

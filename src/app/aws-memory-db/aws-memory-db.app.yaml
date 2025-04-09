@@ -56,7 +56,7 @@ schema:
         placeholder: subnet-123abc456def789,subnet-123def456abc789
         readonly: true
     subnetGroupName:
-      title: DB Subnet GRoup Name
+      title: Subnet Group Name (Subnet Group Name or Subnet IDs)
       type: string
       maxLength: 255
       attrs:

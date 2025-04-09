@@ -14,6 +14,7 @@
   "dependencies": {
     "@aws-sdk/client-cloudwatch": "^3.730.0",
     "@aws-sdk/client-cloudwatch-logs": "^3.767.0",
+    "@aws-sdk/client-ec2": "^3.782.0",
     "@aws-sdk/client-ecs": "^3.693.0",
     "@aws-sdk/client-elastic-load-balancing-v2": "^3.738.0",
     "@aws-sdk/client-memorydb": "^3.731.1",

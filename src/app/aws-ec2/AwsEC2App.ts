@@ -5,11 +5,15 @@ import { Duplex, PassThrough, Readable, Transform, Writable } from 'stream';
 import { EC2 } from './EC2';
 import { Volume } from './Volume';
 import { Client, ClientChannel, ConnectConfig } from 'ssh2';
+import { AwsEC2Api } from './AwsEC2Api';
+import { Image } from '@aws-sdk/client-ec2';
 
 
 const logger = Logger.getLogger('app:AwsEC2App');
 
 export default class AwsEC2App extends AwsAppController<EC2> {
+
+  private readonly ec2Api: AwsEC2Api = new AwsEC2Api();
 
   /**
    * AwsAppController.getDirname
@@ -29,15 +33,17 @@ export default class AwsEC2App extends AwsAppController<EC2> {
     let region = this.request.options.region?.trim() || this.plugin?.options?.REGION;
     // If the user didn't provide a vpcId value in request.options, use the vpcId value from plugin?.options as a fallback.
     let vpcId = this.request.options.vpcId?.trim() || this.plugin?.options?.VPC_ID;
+    let subnetId = this.request.options.subnetId?.trim() || this.plugin?.options?.SUBNET_ID;
+    let amiId = this.request.options.amiId?.trim() || this.plugin?.options?.AMI_ID;
 
     // Underscores ('_') are not allowed in Terraform
     let identifier = this.session.refs.scopename + '-' + this.session.refs.projectname + '-' + this.session.refs.stagename + '-' + this.session.refs.deploymentname;
-    let subnetId = this.request.options.subnetId;
     // let subnetTier = this.request.options.subnetTier.trim();
     // let subnetZone = this.request.options.subnetZone.trim();
-    const associatePublicIpAddress = this.request.options.associatePublicIpAddress;
+    let associatePublicIpAddress = this.request.options.associatePublicIpAddress;
     const instanceType = this.request.options.instanceType.trim();
-    const volumeSize = this.request.options.volumeSize;
+    let volumeSize = this.request.options.volumeSize;
+    let username = this.request.options.username;
 
     const prevOptions = await this.store.loadObject('option');
     // This setting is fixed and cannot be updated.
@@ -46,6 +52,9 @@ export default class AwsEC2App extends AwsAppController<EC2> {
       vpcId = prevOptions?.vpcId;
       identifier = prevOptions?.identifier;
       subnetId = prevOptions?.subnetId;
+      amiId = prevOptions?.amiId;
+      associatePublicIpAddress = prevOptions?.associatePublicIpAddress;
+      //volumeSize = prevOptions?.volumeSize;
       // subnetTier = prevOptions?.subnetTier;
       // subnetZone = prevOptions?.subnetZone;
     }
@@ -53,19 +62,32 @@ export default class AwsEC2App extends AwsAppController<EC2> {
     if (!region) throw new Error(`options 'Region' is required`);
     if (!vpcId) throw new Error(`options 'VPC ID' is required`);
     if (!subnetId) throw new Error(`options 'Subnet ID' is required`);
-    // if (!subnetTier) throw new Error(`options 'Tier(public/private)' is required`);
-    // if (!subnetZone) throw new Error(`options 'Zone(a/b/c)' is required`);
-    
+    if (!amiId) throw new Error(`options 'AMI ID' is required`);
+
+    // imageName
+    let imageName = prevOptions?.imageName
+    if (!imageName) {
+      const image: Image = await this.ec2Api.describeImage(region, amiId);
+      if (!image) throw new Error(`options 'AMI ID' does not exist`);
+      imageName = image.Name;
+    }
+
+    if (!username) {
+      username = prevOptions?.username || this.getDefaultUsername(imageName);
+    }
 
     const options = {
       region,
       vpcId,
       identifier,
       subnetId,
+      amiId,
+      imageName,
       associatePublicIpAddress,
       instanceType,
       volumeSize,
-      instanceState: SERVICE_STATUS.running,
+      username,
+      //instanceState: SERVICE_STATUS.running,
     } as EC2;
 
     await this.store.save('option', options);
@@ -87,7 +109,6 @@ export default class AwsEC2App extends AwsAppController<EC2> {
 
     // output 
     const instanceId = await this.getOutput(stream, shell, 'instance_id');
-    const instanceState = await this.getOutput(stream, shell, 'instance_state');
     const instanceType = await this.getOutput(stream, shell, 'instance_type');
     const privateDns = await this.getOutput(stream, shell, 'private_dns');
     const privateIp = await this.getOutput(stream, shell, 'private_ip');
@@ -99,8 +120,6 @@ export default class AwsEC2App extends AwsAppController<EC2> {
     await this.store.save('info',
       {
         instanceId,
-        instanceState,
-        deployed: (instanceState === 'running') ? true : false,
         instanceType,
         privateDns,
         privateIp,
@@ -122,18 +141,45 @@ export default class AwsEC2App extends AwsAppController<EC2> {
   }
 
   /**
+   * AppController.start
+   * terraform apply
+   */
+  public async start(): Promise<void> {
+
+    logger.info(`[START]`, this.request.name);
+    await this.store.save('status', SERVICE_STATUS.starting);
+
+    const options = await this.store.loadObject('option') as EC2;
+    await this.runApply(options);
+
+    // start
+    const info = await this.store.loadObject('info');
+    this.ec2Api.startInstance(options.region, info.instanceId);
+
+    logger.info(`[START]Done`, this.request.name);
+    await this.store.save('status', SERVICE_STATUS.running);
+    await this.saveDescribe(options);
+
+  }
+
+  /**
    * AppController.stop
    * terraform apply 
    */
   public async stop(): Promise<void> {
 
-    logger.info(`[STOP]`, this.request);
+    const prevStatus = this.store.load('status');
 
-    const options: EC2 = await this.readOptions();
-    options.instanceState = SERVICE_STATUS.stopped
-    await this.runApply(options)
+    logger.info(`[STOP]`, this.request.name);
+    await this.store.save('status', SERVICE_STATUS.stopping);
 
-    logger.info(`[STOP]Done`, this.request);
+    const options = await this.store.loadObject('option') as EC2;
+    const info = await this.store.loadObject('info');
+    this.ec2Api.stopInstance(options.region, info.instanceId);
+
+    logger.info(`[STOP]Done`, this.request.name);
+    await this.store.save('status', SERVICE_STATUS.stopped);
+
   }
 
 
@@ -144,15 +190,16 @@ export default class AwsEC2App extends AwsAppController<EC2> {
   private async getConnectConfig(): Promise<ConnectConfig> {
 
     const info = await this.store.loadObject('info');
+    const options = await this.store.loadObject('option');
     const pem = await this.store.load('pem');
 
     const config: ConnectConfig = {
       host: info?.publicDns || info?.privateDns,
       port: 22,
-      username: 'ubuntu',
+      username: options?.username,
       // privateKey: fs.readFileSync('/path/to/your/private/key')
       privateKey: pem,
-      readyTimeout: 10000 
+      readyTimeout: 10000
     };
 
     return config;
@@ -262,19 +309,17 @@ export default class AwsEC2App extends AwsAppController<EC2> {
     const deployedObjects: DeployedObject[] = []
 
     const info = await this.store.loadObject('info');
-    if (info === undefined || info === null) return;
+    if (!info) return;
     const options = await this.store.loadObject('option');
-
-    logger.info(`[LIST]`, this.request);
-    logger.info(`[LIST][info]`, info);
+    const status = await this.store.load('status');
 
     // workload
     const workload = {
       kind: 'workload',
       name: options.identifier,
       displayName: options.identifier,
-      replicas: info?.deployed ? 1 : 0, 
-      ready: info?.deployed ? 1 : 0,
+      replicas: status === 'running' ? 1 : 0,
+      ready: status === 'running' ? 1 : 0,
       instances: [
         {
           id: info?.instanceId,
@@ -336,13 +381,13 @@ export default class AwsEC2App extends AwsAppController<EC2> {
           name: volume.volume_id,
           // displayName: volume.device_name,
           size: volume.volume_size,
-          mode: 'rwx', 
-          status: 'bound', 
-          description: volume 
+          mode: 'rwx',
+          status: 'bound',
+          description: volume
         } as DeployedVolume
         deployedObjects.push(v);
       }
-    } 
+    }
 
     return deployedObjects;
   }
@@ -354,8 +399,8 @@ export default class AwsEC2App extends AwsAppController<EC2> {
   public async getStat(): Promise<DeploymentStat> {
 
     const info = await this.store.loadObject('info');
-    if (info === undefined || info === null) return;
     const option = await this.store.loadObject('option');
+    const status = await this.store.load('status');
 
     const statObject = {
       region: option?.region,
@@ -363,30 +408,30 @@ export default class AwsEC2App extends AwsAppController<EC2> {
       namespace: 'AWS/EC2',
       dimensionName: 'InstanceId',
       dimensionValue: info?.instanceId,
-      identifier: option.identifier
+      identifier: option?.identifier
     }
 
     return {
-      status: info?.deployed ? SERVICE_STATUS.running : SERVICE_STATUS.stopped,
-      cpu: +info?.cpu || 0,
-      memory: +info?.cpu || 0,
-      disk: +info?.cpu || 0,
-      replicas: info?.deployed ? 1 : 0,
-      ready: info?.deployed ? 1 : 0,
-      available: info?.deployed ? 1 : 0,
-      unavailable: 0,
-      entrypoints: info?.endpoint
-        ?
-        [
-          {
-            link: info.endpoint,
-            type: 'tcp'
-          }
-        ]
-        : null,
-      exposes: [],
+      status: SERVICE_STATUS[status],
       objects: [statObject],
-      since: new Date(info?.launchTime)
+      // cpu: +info?.cpu || 0,
+      // memory: +info?.memory || 0,
+      // disk: +info?.disk || 0,
+      // replicas: status === 'running' ? 1 : 0,
+      // ready: status === 'running' ? 1 : 0,
+      // available: status === 'running' ? 1 : 0,
+      // unavailable: status === 'running' ? 0 : 1,
+      // entrypoints: info?.endpoint
+      //   ?
+      //   [
+      //     {
+      //       link: info.endpoint,
+      //       type: 'tcp'
+      //     }
+      //   ]
+      //   : null,
+      // exposes: [],
+      // since: new Date(info?.launch_time)
     };
   }
 
@@ -449,16 +494,64 @@ export default class AwsEC2App extends AwsAppController<EC2> {
         return;
     }
 
-    logger.info(`[METRIC]`, metricData);
-
-    // total: number;
-    // dates: Date[];
-    // series?: MetricItemSeries[];
-    // values?: number[];
-    // summary?: AnyObject[];
+    logger.info(`[METRIC][${this.deployment.name}]${name}`, metricData);
 
     return metricData;
   }
+
+  /*
+   * In most cases, the default username 
+   * Amazon Linux	ec2-user
+   * Ubuntu	      ubuntu
+   * RHEL	        ec2-user or root
+   * CentOS	      centos
+   * Debian	      admin or debian
+   * SUSE Linux	  ec2-user or root
+   * Fedora	      fedora
+   * Windows	    Administrator (RDP 사용)
+   */
+
+  private getDefaultUsername(imageName: string): string {
+
+    const regex = new RegExp('(ubuntu|rhel|centos|debian|suse|fedora|windows|macos)');
+    const match = regex.exec(imageName.toLowerCase());
+    const os = match[1];
+    let username = 'ec2-user'
+
+    switch (os) {
+      case 'ubuntu':
+        username = 'ubuntu'
+        break;
+      case 'rhel':
+        username = 'ec2-user'
+        break;
+      case 'centos':
+        username = 'centos'
+        break;
+      case 'debian':
+        username = 'admin'
+        break;
+      case 'suse':
+        username = 'ec2-user'
+        break;
+      case 'fedora':
+        username = 'fedora'
+        break;
+      case 'windows':
+        username = 'Administrator'
+        break;
+      case 'macos':
+        username = 'ec2-user'
+        break;
+      default:
+        username = 'ec2-user'
+    }
+
+    return username;
+  }
+
+
+
 
 
 }

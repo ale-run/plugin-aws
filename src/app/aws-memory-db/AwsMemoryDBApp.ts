@@ -1,4 +1,4 @@
-import { DeployedObject, IShell, Logger, SERVICE_STATUS, DeployedWorkload, DeployedWorkloadInstance, DeployedIngress, DeployedDomain, DeploymentStat, MetricItem, MetricData, MetricFilter } from '@ale-run/runtime';
+import { DeployedObject, IShell, Logger, SERVICE_STATUS, DeployedWorkload, DeployedWorkloadInstance, DeployedIngress, DeployedDomain, DeploymentStat, MetricItem, MetricData, MetricFilter, DeployedExpose } from '@ale-run/runtime';
 import { AwsAppController } from '../AwsAppController';
 import { Duplex } from 'stream';
 import { MemoryDB } from './MemoryDB';
@@ -105,7 +105,6 @@ export default class AwsMemoryDBApp extends AwsAppController<MemoryDB> {
     await this.store.save('info',
       {
         cluster,
-        deployed: (cluster?.Status === 'available') ? true : false,
       }
     );
   }
@@ -118,12 +117,10 @@ export default class AwsMemoryDBApp extends AwsAppController<MemoryDB> {
   public async list(kind?: string): Promise<DeployedObject[]> {
 
     const deployedObjects: DeployedObject[] = []
+
     const info = await this.store.loadObject('info');
     if (!info) return deployedObjects;
     const options = await this.store.loadObject('option');
-
-    logger.info(`[LIST]`, this.request);
-    logger.info(`[LIST][info]`, info);
 
     const cluster: Cluster = info?.cluster;
 
@@ -154,17 +151,28 @@ export default class AwsMemoryDBApp extends AwsAppController<MemoryDB> {
     } as DeployedWorkload;
     deployedObjects.push(workload);
 
-    // ClusterEndpoint
-    const ingress = {
-      kind: 'ingress',
+    // // ClusterEndpoint
+    // const ingress = {
+    //   kind: 'ingress',
+    //   name: options.identifier,
+    //   type: 'tcp',
+    //   entrypoints: [cluster?.ClusterEndpoint?.Address],
+    //   servicePort: cluster?.ClusterEndpoint?.Port,
+    //   status: 'bound',
+    //   description: cluster?.ClusterEndpoint
+    // } as DeployedIngress;
+    // deployedObjects.push(ingress);
+
+    // Endpoint
+    const expose = {
+      kind: 'expose',
       name: options.identifier,
-      type: 'tcp',
-      entrypoints: [cluster?.ClusterEndpoint?.Address],
-      servicePort: cluster?.ClusterEndpoint?.Port,
-      status: 'bound',
+      hostname: cluster?.ClusterEndpoint?.Address,
+      port: cluster?.ClusterEndpoint?.Port,
+      protocol: 'tcp',
       description: cluster?.ClusterEndpoint
-    } as DeployedIngress;
-    deployedObjects.push(ingress);
+    } as DeployedExpose;
+    deployedObjects.push(expose);
 
     return deployedObjects;
   }
@@ -175,8 +183,9 @@ export default class AwsMemoryDBApp extends AwsAppController<MemoryDB> {
    */
   public async getStat(): Promise<DeploymentStat> {
 
-    const option = (await this.store.loadObject('option')) as MemoryDB;
     const info = await this.store.loadObject('info');
+    const option = await this.store.loadObject('option') as MemoryDB;
+    const status = await this.store.load('status');
 
     const statObject = {
       region: option?.region,
@@ -188,26 +197,26 @@ export default class AwsMemoryDBApp extends AwsAppController<MemoryDB> {
     }
 
     return {
-      status: info?.deployed ? SERVICE_STATUS.running : SERVICE_STATUS.stopped,
-      cpu: +info?.cpu || 0,
-      memory: +info?.cpu || 0,
-      disk: +info?.cpu || 0,
-      replicas: info?.deployed ? 1 : 0,
-      ready: info?.deployed ? 1 : 0,
-      available: info?.deployed ? 1 : 0,
-      unavailable: 0,
-      entrypoints: info?.endpoint
-        ?
-        [
-          {
-            link: info.endpoint,
-            type: 'tcp'
-          }
-        ]
-        : null,
-      exposes: [],
+      status: SERVICE_STATUS[status],
       objects: [statObject],
-      since: new Date(info?.launch_time)
+      // cpu: +info?.cpu || 0,
+      // memory: +info?.memory || 0,
+      // disk: +info?.disk || 0,
+      // replicas: status === 'running' ? 1 : 0,
+      // ready: status === 'running' ? 1 : 0,
+      // available: status === 'running' ? 1 : 0,
+      // unavailable: status === 'running' ? 0 : 1,
+      // entrypoints: info?.endpoint
+      //   ?
+      //   [
+      //     {
+      //       link: info.endpoint,
+      //       type: 'tcp'
+      //     }
+      //   ]
+      //   : null,
+      // exposes: [],
+      // since: new Date(info?.launch_time)
     };
   }
 

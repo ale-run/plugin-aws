@@ -103,7 +103,6 @@ export default class AwsLambdaApp extends AwsAppController<Lambda> {
         functionUrl,
         authorizationType,
         result,
-        deployed: true,
       }
     );
   }
@@ -122,7 +121,7 @@ export default class AwsLambdaApp extends AwsAppController<Lambda> {
 
     await this.runPlan(options)
 
-    logger.info(`[DEPLOY]done`, this.request);
+    logger.info(`[DEPLOY]done`, this.request.name);
 
   }
 
@@ -132,7 +131,7 @@ export default class AwsLambdaApp extends AwsAppController<Lambda> {
    * 
    */
   public async stop(): Promise<void> {
-    logger.info(`[STOP]`, this.request);
+    logger.info(`[STOP]`, this.request.name);
     logger.info(`[STOP]This request is skipped`);
     // logger.info(`[STOP]Done`, this.request);
   }
@@ -226,35 +225,34 @@ export default class AwsLambdaApp extends AwsAppController<Lambda> {
   public async list(kind?: string): Promise<DeployedObject[]> {
 
     const deployedObjects: DeployedObject[] = []
+    
     const info = await this.store.loadObject('info');
     if (!info) return deployedObjects;
     const options = await this.store.loadObject('option');
+    const status = await this.store.load('status');
 
 
     // workload(function 정보)
     const workload: DeployedWorkload = {
-      kind:         'workload',
-      name:         options.identifier,
-      displayName:  options.identifier,
-      // runtime:      info?.runtime,
-      // lastModified: info?.lastModified,
+      kind: 'workload',
+      name: options.identifier,
+      displayName: options.identifier,
+      replicas: status === 'running' ? 1 : 0,
+      ready: status === 'running' ? 1 : 0,
       description:  {runtime: info?.runtime, lastModified: info?.lastModified},
-      replicas: info?.deployed ? 1 : 0,
-      ready: info?.deployed ? 1 : 0
     } as DeployedWorkload;
     deployedObjects.push(workload);
 
 
     // function url 정보
-    const ingress: DeployedIngress = {
-      kind:         'ingress',
-      name:         info?.functionName,
-      type:         'https',
+    const ingress = {
+      kind: 'ingress',
+      name: info?.functionName,
+      type: 'https',
       entrypoints: [info?.functionUrl],
       description: {authorizationType: info?.authorizationType}
-    }
+    } as DeployedIngress;
     deployedObjects.push(ingress);
-
 
     return deployedObjects;
   }
@@ -266,8 +264,8 @@ export default class AwsLambdaApp extends AwsAppController<Lambda> {
   public async getStat(): Promise<DeploymentStat> {
 
     const info = await this.store.loadObject('info');
-    if (!info) return;
-    const option = await this.store.loadObject('option');
+    const option = await this.store.loadObject('option') as Lambda;
+    const status = await this.store.load('status');
 
     const statObject = {
       region: option?.region,
@@ -278,28 +276,27 @@ export default class AwsLambdaApp extends AwsAppController<Lambda> {
       identifier: option?.identifier
     }
 
-
     return {
-      status: info?.deployed ? SERVICE_STATUS.running : SERVICE_STATUS.stopped,
-      cpu: +info?.cpu || 0,
-      memory: +info?.cpu || 0,
-      disk: +info?.cpu || 0,
-      replicas: info?.deployed ? 1 : 0,
-      ready: info?.deployed ? 1 : 0,
-      available: info?.deployed ? 1 : 0,
-      unavailable: 0,
-      entrypoints: info?.endpoint
-        ?
-        [
-          {
-            link: info.endpoint,
-            type: 'tcp'
-          }
-        ]
-        : null,
-      exposes: [],
+      status: SERVICE_STATUS[status],
       objects: [statObject],
-      since: new Date(info?.launch_time)
+      // cpu: +info?.cpu || 0,
+      // memory: +info?.memory || 0,
+      // disk: +info?.disk || 0,
+      // replicas: status === 'running' ? 1 : 0,
+      // ready: status === 'running' ? 1 : 0,
+      // available: status === 'running' ? 1 : 0,
+      // unavailable: status === 'running' ? 0 : 1,
+      // entrypoints: info?.endpoint
+      //   ?
+      //   [
+      //     {
+      //       link: info.endpoint,
+      //       type: 'tcp'
+      //     }
+      //   ]
+      //   : null,
+      // exposes: [],
+      // since: new Date(info?.launch_time)
     };
   }
 
@@ -347,7 +344,7 @@ export default class AwsLambdaApp extends AwsAppController<Lambda> {
         break;
       case 'Invocations':
       case 'Errors':
-        metricData = await this.cloudwatchApi.getMetricData(name, Statistic.Maximum, metricObject, options);
+        metricData = await this.cloudwatchApi.getMetricData(name, Statistic.Sum, metricObject, options);
         break;
     }
 

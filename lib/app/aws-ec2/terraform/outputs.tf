@@ -54,10 +54,6 @@ output "root_block_device" {
   value = aws_instance.instance.root_block_device
 }
 
-output "instance_state" {
-  value = aws_ec2_instance_state.state.state
-}
-
 output "launch_time" {
   value = data.aws_instance.ec2.launch_time
 }

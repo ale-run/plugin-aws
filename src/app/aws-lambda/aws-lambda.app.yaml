@@ -93,6 +93,5 @@ schema:
     - runtime
     - region
     - sourceFileName
-    - inputParameter
 context:
   - git

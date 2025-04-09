@@ -1,10 +1,11 @@
-import { DeployedObject, IShell, Logger, SERVICE_STATUS, DeployedWorkload, DeployedWorkloadInstance, DeployedIngress, DeployedDomain, DeploymentStat, MetricItem, MetricData, MetricFilter } from '@ale-run/runtime';
+import { DeployedObject, IShell, Logger, SERVICE_STATUS, DeployedWorkload, DeployedWorkloadInstance, DeployedIngress, DeployedDomain, DeploymentStat, MetricItem, MetricData, MetricFilter, DeployedExpose } from '@ale-run/runtime';
 import { AwsAppController } from '../AwsAppController';
 import { Duplex } from 'stream';
 import { RDS } from './RDS';
 import { AwsRDSApi } from './AwsRDSApi';
 import { DBInstance } from '@aws-sdk/client-rds';
 import { Statistic } from '@aws-sdk/client-cloudwatch';
+import { MemoryDB } from '@aws-sdk/client-memorydb';
 
 
 const logger = Logger.getLogger('app:AwsRDSApp');
@@ -115,7 +116,6 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
     await this.store.save('info',
       {
         dbInstance,
-        deployed: (dbInstance.DBInstanceStatus === 'available') ? true : false,
       }
     );
   
@@ -127,15 +127,17 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
    */
   public async start(): Promise<void> {
 
-    logger.info(`[START]`, this.request);
+    logger.info(`[START]`, this.request.name);
+    await this.store.save('status', SERVICE_STATUS.starting);
 
-    const options: RDS = await this.readOptions();
+    const options = await this.store.loadObject('option') as RDS;
     await this.runApply(options);
 
     // start
     const status = await this.rdsApi.start(options.region, options.identifier);
 
-    logger.info(`[START]Done`, this.request);
+    logger.info(`[START]Done`, this.request.name);
+    await this.store.save('status', SERVICE_STATUS.running);
     await this.saveDescribe(options);
 
   }
@@ -146,12 +148,14 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
    */
   public async stop(): Promise<void> {
 
-    logger.info(`[STOP]`, this.request);
+    logger.info(`[STOP]`, this.request.name);
+    await this.store.save('status', SERVICE_STATUS.stopping);
 
-    const options: RDS = await this.readOptions();
+    const options = await this.store.loadObject('option') as RDS;
     await this.rdsApi.stop(options.region, options.identifier);
 
-    logger.info(`[STOP]Done`, this.request);
+    logger.info(`[STOP]Done`, this.request.name);
+    await this.store.save('status', SERVICE_STATUS.stopped);
     await this.saveDescribe(options);
 
   }
@@ -164,12 +168,11 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
   public async list(kind?: string): Promise<DeployedObject[]> {
 
     const deployedObjects: DeployedObject[] = []
+
     const info = await this.store.loadObject('info');
     if (!info) return deployedObjects;
     const options = await this.store.loadObject('option');
-
-    logger.info(`[LIST]`, this.request);
-    logger.info(`[LIST][info]`, info);
+    const status = await this.store.load('status');
 
     const dbInstance: DBInstance = info?.dbInstance;
 
@@ -178,10 +181,10 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
       kind: 'workload',
       name: options.identifier,
       displayName: options.identifier,
-      replicas: info.deployed ? 1 : 0, // stop은 ....... 
-      ready: info.deployed ? 1 : 0,
+      replicas: status === 'running' ? 1 : 0,
+      ready: status === 'running' ? 1 : 0,
       instances: [
-        {
+        {                                          
           id: dbInstance.DBInstanceIdentifier,
           status: dbInstance.DBInstanceStatus,
           started: new Date(dbInstance.InstanceCreateTime),
@@ -191,17 +194,30 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
     } as DeployedWorkload;
     deployedObjects.push(workload);
 
+    //Endpoint
+    if (dbInstance.PubliclyAccessible) {
+      const ingress = {
+        kind: 'ingress',
+        name: options.identifier,
+        type: 'tcp',
+        entrypoints: [dbInstance.Endpoint?.Address],
+        servicePort: dbInstance.Endpoint?.Port,
+        status: 'bound',
+        description: dbInstance.Endpoint
+      } as DeployedIngress;
+      deployedObjects.push(ingress);
+    }
 
-    const ingress = {
-      kind: 'ingress',
+    // Endpoint
+    const expose = {
+      kind: 'expose',
       name: options.identifier,
-      type: 'tcp',
-      entrypoints: [dbInstance.Endpoint?.Address],
-      servicePort: dbInstance.Endpoint?.Port,
-      status: 'bound',
+      hostname: dbInstance.Endpoint?.Address,
+      port: dbInstance.Endpoint?.Port,
+      protocol: 'tcp',
       description: dbInstance.Endpoint
-    } as DeployedIngress;
-    deployedObjects.push(ingress);
+    } as DeployedExpose;
+    deployedObjects.push(expose);
 
     return deployedObjects;
 
@@ -214,8 +230,9 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
   public async getStat(): Promise<DeploymentStat> {
 
     const info = await this.store.loadObject('info');
-    const option = await this.store.loadObject('option');
-
+    const option = await this.store.loadObject('option') as RDS;
+    const status = await this.store.load('status');
+    
     const statObject = {
       region: option?.region,
       metric: 'cloudwatch',
@@ -226,26 +243,26 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
     }
 
     return {
-      status: info?.deployed ? SERVICE_STATUS.running : SERVICE_STATUS.stopped,
-      cpu: +info?.cpu || 0,
-      memory: +info?.cpu || 0,
-      disk: +info?.cpu || 0,
-      replicas: info?.deployed ? 1 : 0,
-      ready: info?.deployed ? 1 : 0,
-      available: info?.deployed ? 1 : 0,
-      unavailable: 0,
-      entrypoints: info?.endpoint
-        ?
-        [
-          {
-            link: info.endpoint,
-            type: 'tcp'
-          }
-        ]
-        : null,
-      exposes: [],
+      status: SERVICE_STATUS[status],
       objects: [statObject],
-      since: new Date(info?.launch_time)
+      // cpu: +info?.cpu || 0,
+      // memory: +info?.memory || 0,
+      // disk: +info?.disk || 0,
+      // replicas: status === 'running' ? 1 : 0,
+      // ready: status === 'running' ? 1 : 0,
+      // available: status === 'running' ? 1 : 0,
+      // unavailable: status === 'running' ? 0 : 1,
+      // entrypoints: info?.endpoint
+      //   ?
+      //   [
+      //     {
+      //       link: info.endpoint,
+      //       type: 'tcp'
+      //     }
+      //   ]
+      //   : null,
+      // exposes: [],
+      // since: new Date(info?.launch_time)
     };
 
   }

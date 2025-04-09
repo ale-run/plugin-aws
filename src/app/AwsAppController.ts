@@ -34,7 +34,7 @@ export abstract class AwsAppController<T extends AWS> extends AppController {
   public abstract saveOutput(stream: Duplex, shell: IShell, options?: T): Promise<void>;
 
   /**
-   * Called by start 
+   * Called by start or stop
    * instance information via API (aws sdk)
    * @param options 
    */
@@ -49,12 +49,12 @@ export abstract class AwsAppController<T extends AWS> extends AppController {
   public async deploy(): Promise<void> {
 
     logger.info(`[DEPLOY]`, this.request);
+    //await this.store.save('status', SERVICE_STATUS.deploying);
 
     const options = await this.readOptions();
-    // options.instanceState = SERVICE_STATUS.running
     await this.runPlan(options)
 
-    logger.info(`[DEPLOY]done`, this.request);
+    logger.info(`[DEPLOY]done`, this.request.name);
 
   }
 
@@ -66,30 +66,26 @@ export abstract class AwsAppController<T extends AWS> extends AppController {
   public async start(): Promise<void> {
 
     logger.info(`[START]`, this.request.name);
+    await this.store.save('status', SERVICE_STATUS.starting);
 
-    const options = await this.readOptions();
-    // options.instanceState = SERVICE_STATUS.running
+    const options = await this.store.loadObject('option') as T;
     await this.runApply(options)
 
-    logger.info(`[START]Done`, this.request);
+    logger.info(`[START]Done`, this.request.name);
+    await this.store.save('status', SERVICE_STATUS.running);
     await this.saveDescribe(options);
 
   }
 
   /**
    * AppController.stop
-   * terraform apply 실행
+   * This request is skipped
    */
   public async stop(): Promise<void> {
 
     logger.info(`[STOP]`, this.request.name);
-
-    const options = await this.store.loadObject('option') as T;
-    await this.runApply(options)
-
-    logger.info(`[STOP]Done`, this.request);
-    await this.saveDescribe(options);
-
+    logger.info(`[STOP]This request is skipped`);
+    // logger.info(`[STOP]Done`, this.request);
   }
 
   /**
@@ -99,11 +95,12 @@ export abstract class AwsAppController<T extends AWS> extends AppController {
   public async destroy(): Promise<void> {
 
     logger.info(`[DESTROY]`, this.request.name);
-    
+    //await this.store.save('status', SERVICE_STATUS.undeploying);
+
     const options = await this.store.loadObject('option') as T;
     const output = await this.runDestroy(options);
 
-    logger.info(`[DESTROY]Done`, this.request);
+    logger.info(`[DESTROY]Done`, this.request.name);
 
   }
 
@@ -130,7 +127,7 @@ export abstract class AwsAppController<T extends AWS> extends AppController {
       return;
     }
 
-    logger.info(`[METRIC][${this.deployment.name}] cloudwatch object=`, object);
+    logger.debug(`[METRIC][${this.deployment.name}] cloudwatch object=`, object);
     return object;
   }
 
@@ -158,6 +155,7 @@ export abstract class AwsAppController<T extends AWS> extends AppController {
       logger.info(`[PLAN][${identifier}]Done        ---------------------------`);
 
     } catch (err) {
+      await this.store.save('status', SERVICE_STATUS.error);
       logger.warn(`[PLAN][${identifier}]Error       ---------------------------`);
       logger.warn(err);
       throw err
@@ -194,6 +192,7 @@ export abstract class AwsAppController<T extends AWS> extends AppController {
       await this.saveOutput(stream, shell, options);
 
     } catch (err) {
+      await this.store.save('status', SERVICE_STATUS.error);
       logger.warn(`[APPLY][${identifier}]Error      ---------------------------`);
       logger.warn(err);
       throw err
@@ -231,6 +230,7 @@ export abstract class AwsAppController<T extends AWS> extends AppController {
       logger.info(`[DESTROY][${identifier}]Done     ---------------------------`);
 
     } catch (err) {
+      await this.store.save('status', SERVICE_STATUS.error);
       logger.warn(`[DESTROY][${identifier}]Error    ---------------------------`);
       logger.warn(err);
       throw err
@@ -277,7 +277,7 @@ export abstract class AwsAppController<T extends AWS> extends AppController {
    */
   async writeTerraformFile(stream: Duplex, shell: IShell, options: T): Promise<void> {
 
-    logger.info(`[WRITE][${options.identifier}]            ---------------------------`);
+    logger.debug(`[WRITE][${options.identifier}]`);
     const dirname = this.getDirname();
 
     // file write ////////////////////////////////////////////////////////////////////////

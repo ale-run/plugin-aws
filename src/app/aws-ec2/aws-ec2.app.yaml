@@ -18,16 +18,40 @@ schema:
       type: string
       default: ap-northeast-2
       enum:
+        - us-east-1 
         - us-east-2
-        - ap-northeast-2
+        - us-west-1
+        - us-west-2
+        - sa-east-1
+        - eu-west-1
+        - eu-west-2
+        - eu-west-3
+        - eu-central-1
+        - eu-central-2
+        - ap-southeast-1
+        - ap-southeast-2
         - ap-northeast-1
+        - ap-northeast-2
+        - ap-northeast-3
       attrs:
         placeholder: Select a Region
         readonly: true
         labels:
-          - United States (Ohio)
-          - Asia Pacific (Seoul)
+          - US East (N. Virginia)
+          - US East (Ohio)
+          - US West (N. California)
+          - US West (Oregon)
+          - South America (São Paulo)
+          - Europe (Ireland)
+          - Europe (London)
+          - Europe (Paris)
+          - Europe (Frankfurt)
+          - Europe (Zurich)
+          - Asia Pacific (Singapore)
+          - Asia Pacific (Sydney)
           - Asia Pacific (Tokyo)
+          - Asia Pacific (Seoul)
+          - Asia Pacific (Osaka)
     vpcId:
       title: VPC ID
       type: string
@@ -41,6 +65,13 @@ schema:
       maxLength: 255
       attrs:
         placeholder: subnet-123abc456def789
+        readonly: true
+    amiId:
+      title: AMI ID
+      type: string
+      maxLength: 255
+      attrs:
+        placeholder: ami-042e76978adeb8c48
         readonly: true
     associatePublicIpAddress:
       title: Associate Public Ip Address
@@ -81,19 +112,48 @@ schema:
       enum:
         - t2.micro
         - t3.micro
+        - t3.small
+        - t3.medium
+        - m5.large
+        - m5.xlarge
+        - m5.2xlarge
+        - c5.large
+        - c5.xlarge
+        - c5.2xlarge
+        - r5.large
+        - r5.xlarge
+        - r5.2xlarge
       attrs:
         placeholder: Select a instance type
         labels:
-          - t2.micro
-          - t3.micro
+        - t2.micro  (vCPU:1 RAM:1)
+        - t3.micro	(vCPU:2	RAM:1)
+        - t3.small	(vCPU:2	RAM:2)
+        - t3.medium	(vCPU:2	RAM:4)
+        - m5.large	(vCPU:2	RAM:8)
+        - m5.xlarge	(vCPU:4	RAM:16)
+        - m5.2xlarge(vCPU:8	RAM:32)
+        - c5.large	(vCPU:2	RAM:4)
+        - c5.xlarge	(vCPU:4	RAM:8)
+        - c5.2xlarge(vCPU:8	RAM:16)
+        - r5.large	(vCPU:2	RAM:16)
+        - r5.xlarge	(vCPU:4	RAM:32)
+        - r5.2xlarge(vCPU:8	RAM:64)
     volumeSize:
       title: Volume Size
       type: number
-      default: 8
+      default: 20
       maxLength: 4
       attrs:
-        placeholder: 8
+        placeholder: 20
         readonly: true  
+    username:
+      title: Username
+      type: string
+      maxLength: 100
+      attrs:
+        placeholder: ec2-user
+
     # env:
     #   title: Environment variables
     #   type: array
@@ -111,6 +171,7 @@ schema:
     - region
     - vpcId
     - subnetId
+    - amiId
     - associatePublicIp
     - instanceType
 

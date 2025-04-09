@@ -3,6 +3,7 @@ import { AwsAppController } from '../AwsAppController';
 import { Duplex, Readable, Writable } from 'stream';
 import { EC2 } from './EC2';
 export default class AwsEC2App extends AwsAppController<EC2> {
+    private readonly ec2Api;
     /**
      * AwsAppController.getDirname
      * @returns
@@ -21,6 +22,11 @@ export default class AwsEC2App extends AwsAppController<EC2> {
      */
     saveOutput(stream: Duplex, shell: IShell, options?: EC2): Promise<void>;
     private savePem;
+    /**
+     * AppController.start
+     * terraform apply
+     */
+    start(): Promise<void>;
     /**
      * AppController.stop
      * terraform apply
@@ -66,4 +72,5 @@ export default class AwsEC2App extends AwsAppController<EC2> {
      * @returns
      */
     getMetric(name: string, options: MetricFilter): Promise<MetricData>;
+    private getDefaultUsername;
 }

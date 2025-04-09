@@ -13,7 +13,6 @@ variable "region" {
 variable "vpc_id" {
   description = "vpc id"
   type        = string
-  #default     = ""
 }
 
 variable "name" {
@@ -22,10 +21,14 @@ variable "name" {
   nullable    = false
 }
 
+variable "ami_id" {
+  description = "amazon machine image"
+  type        = string
+}
+
 variable "instance_type" {
   description = "instance type of the ec2"
   type        = string
-  default     = "t2.micro"
 }
 
 variable "subnet_id" {
@@ -57,8 +60,8 @@ variable "volume_size" {
   default     = 8
 }
 
-variable "instance_state" {
-  description = "running / stopped"
-  type        = string
-  default     = "running"
-}
+# variable "instance_state" {
+#   description = "running / stopped"
+#   type        = string
+#   default     = "running"
+# }

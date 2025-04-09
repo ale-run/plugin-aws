@@ -15,7 +15,7 @@ export declare abstract class AwsAppController<T extends AWS> extends AppControl
      */
     abstract saveOutput(stream: Duplex, shell: IShell, options?: T): Promise<void>;
     /**
-     * Called by start
+     * Called by start or stop
      * instance information via API (aws sdk)
      * @param options
      */
@@ -32,7 +32,7 @@ export declare abstract class AwsAppController<T extends AWS> extends AppControl
     start(): Promise<void>;
     /**
      * AppController.stop
-     * terraform apply 실행
+     * This request is skipped
      */
     stop(): Promise<void>;
     /**
