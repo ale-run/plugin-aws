@@ -515,7 +515,7 @@ export default class AwsEC2App extends AwsAppController<EC2> {
 
     const regex = new RegExp('(ubuntu|rhel|centos|debian|suse|fedora|windows|macos)');
     const match = regex.exec(imageName.toLowerCase());
-    const os = match[1];
+    const os = match?.[1];
     let username = 'ec2-user'
 
     switch (os) {
