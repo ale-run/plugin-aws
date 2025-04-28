@@ -7,7 +7,10 @@
 </a>
 </p>
 <h3 align="center">A Fully Customizable Developer Platform</h3>
-<p align="center">Ale is an extensible, self-hosted developer platform offering full customization, enabling you to build and deploy on your terms.</p>
+<p align="center">
+  Ale is an extensible, self-hosted developer platform offering full customization,<br />
+  enabling you to build and deploy on your terms.
+</p>
 
 <br />
 
