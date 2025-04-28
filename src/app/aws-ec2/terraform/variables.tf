@@ -13,7 +13,6 @@ variable "region" {
 variable "vpc_id" {
   description = "vpc id"
   type        = string
-  #default     = ""
 }
 
 variable "name" {
@@ -22,23 +21,38 @@ variable "name" {
   nullable    = false
 }
 
+variable "ami_id" {
+  description = "amazon machine image"
+  type        = string
+}
+
 variable "instance_type" {
   description = "instance type of the ec2"
   type        = string
-  default     = "t2.micro"
 }
 
-variable "subnet_tier" {
-  description = "subnet tier (public/private)"
+variable "subnet_id" {
+  description = "subnet id"
   type        = string
-  default     = "private"
 }
 
-variable "subnet_zone" {
-  description = "subnet zone (a/b/c...)"
-  type        = string
-  default     = "a"
+variable "associate_public_ip_address" {
+  description = "associate_public_ip_address"
+  type        = bool
+  default     = false
 }
+
+# variable "subnet_tier" {
+#   description = "subnet tier (public/private)"
+#   type        = string
+#   default     = "private"
+# }
+
+# variable "subnet_zone" {
+#   description = "subnet zone (a/b/c...)"
+#   type        = string
+#   default     = "a"
+# }
 
 variable "volume_size" {
   description = "volume size(gb)"
@@ -46,8 +60,8 @@ variable "volume_size" {
   default     = 8
 }
 
-variable "instance_state" {
-  description = "running / stopped"
-  type        = string
-  default     = "running"
-}
+# variable "instance_state" {
+#   description = "running / stopped"
+#   type        = string
+#   default     = "running"
+# }

@@ -7,7 +7,7 @@ export class AwsCloudwatchApi {
 
 
   /**
-   * get Metric
+   * get MetricData
    * @param metricName 
    * @param statistic 
    * @param statObject 
@@ -71,45 +71,33 @@ export class AwsCloudwatchApi {
 
 
   /**
-   * CPUUtilization
-   * EC2, RDS
+   * CPUUtilization MetricData
    * @param statObject 
    * @param options 
    * @returns 
    */
   public async getCPUUtilization(statObject: AnyObject, options: MetricFilter) {
-
-    const input = this.getCommandInput('CPUUtilization', [Statistic.Average], statObject, options);
-    const datapoints = await this.getMetricStatistics(statObject.region, input);
-    return this.toMetricData(statObject.identifier, datapoints)
-
+    return this.getMetricData('CPUUtilization', Statistic.Average, statObject, options);
   }
 
   /**
-   * EC2
+   * NetworkIn MetricData
    * @param statObject 
    * @param options 
    * @returns 
    */
   public async getNetworkIn(statObject: AnyObject, options: MetricFilter) {
-
-    const input = this.getCommandInput('NetworkIn', [Statistic.Sum], statObject, options);
-    const datapoints = await this.getMetricStatistics(statObject.region, input);
-    return this.toMetricData(statObject.identifier, datapoints)
+    return this.getMetricData('NetworkIn', Statistic.Sum, statObject, options);
   }
 
   /**
-   * EC2
+   * NetworkOut MetricData
    * @param statObject 
    * @param options 
    * @returns 
    */
   public async getNetworkOut(statObject: AnyObject, options: MetricFilter) {
-
-    const input = this.getCommandInput('NetworkOut', [Statistic.Sum], statObject, options);
-    const datapoints: Datapoint[] = await this.getMetricStatistics(statObject.region, input);
-    return this.toMetricData(statObject.identifier, datapoints)
-
+    return this.getMetricData('NetworkIn', Statistic.Sum, statObject, options);
   }
 
 
@@ -123,8 +111,8 @@ export class AwsCloudwatchApi {
 
       const command = new GetMetricStatisticsCommand(input);
       const response = await client.send(command);
-      logger.info('[getMetricStatistics]metadata=', response.$metadata);
-      logger.info('[getMetricStatistics]Datapoints=', response.Datapoints);
+      logger.debug('[getMetricStatistics]metadata=', response.$metadata);
+      logger.debug('[getMetricStatistics]Datapoints=', response.Datapoints);
 
       if (response.$metadata.httpStatusCode === 200) {
         // DataPoint를 시간순으로 정렬하기

@@ -2,7 +2,6 @@ import { Service, Task, TaskDefinition} from '@aws-sdk/client-ecs';
 import { LoadBalancer } from '@aws-sdk/client-elastic-load-balancing-v2';
 
 export class ECSInfo {
-    deployed: boolean;
     desiredCount: number;
     runningCount: number;
     // service?: Service;

@@ -18,15 +18,46 @@ schema:
       type: string
       default: ap-northeast-2
       enum:
+        - us-east-1 
         - us-east-2
-        - ap-northeast-2
+        - us-west-1
+        - us-west-2
+        - sa-east-1
+        - eu-west-1
+        - eu-west-2
+        - eu-west-3
+        - eu-central-1
+        - eu-central-2
+        - ap-southeast-1
+        - ap-southeast-2
         - ap-northeast-1
+        - ap-northeast-2
+        - ap-northeast-3
       attrs:
         placeholder: Select a Region
+        readonly: true
         labels:
-          - United States (Ohio)
-          - Asia Pacific (Seoul)
+          - US East (N. Virginia)
+          - US East (Ohio)
+          - US West (N. California)
+          - US West (Oregon)
+          - South America (São Paulo)
+          - Europe (Ireland)
+          - Europe (London)
+          - Europe (Paris)
+          - Europe (Frankfurt)
+          - Europe (Zurich)
+          - Asia Pacific (Singapore)
+          - Asia Pacific (Sydney)
           - Asia Pacific (Tokyo)
+          - Asia Pacific (Seoul)
+          - Asia Pacific (Osaka)
+    clusterName:
+      title: Cluster Name
+      type: string
+      maxLength: 255
+      attrs:
+        placeholder: ecs-cluster
         readonly: true
     vpcId:
       title: VPC ID
@@ -35,28 +66,48 @@ schema:
       attrs:
         placeholder: 123abc456def789
         readonly: true
+    subnetIds:
+      title: Subnet IDs (used to create a Service. Input the subnet Id separated by comma ',')
+      type: string
+      maxLength: 255
+      attrs:
+        placeholder: subnet-123abc456def789,subnet-123def456abc789
+        #readonly: true
+    publicSubnetIds:
+      title: Public Subnet IDs (used to create a LoadBalancer. Input the subnet Id separated by comma ',')
+      type: string
+      maxLength: 255
+      attrs:
+        placeholder: subnet-123abc456def789,subnet-123def456abc789
+        #readonly: true
     containerName:
-      title: container name
+      title: Container Name
       type: string
       default: httpd
       maxLength: 255
       attrs:
         placeholder: httpd
     containerImage:
-      title: container image
+      title: Container Image
       type: string
       default: public.ecr.aws/docker/library/httpd:2.4
       maxLength: 255
       attrs:
         placeholder: public.ecr.aws/docker/library/httpd:2.4
     containerPort:
-      title: container port
+      title: Container Port
       type: number
       default: 80
       attrs:
         placeholder: 80
+    efsName:
+      title: EFS Name (EFS is required when using a volume)
+      type: string
+      maxLength: 255
+      attrs:
+        placeholder: ecs-efs-volume
     volumes:
-      title: volume
+      title: Volumes (input /path in the value field)
       type: array
       items:
         type: object
@@ -69,7 +120,7 @@ schema:
       attrs:
         type: keyvalue
     desiredCount:
-      title: desired count
+      title: Desired Count
       type: number
       default: 1
       attrs:
@@ -77,7 +128,7 @@ schema:
     launchType:
       title: Launch type
       type: string
-      default: EC2
+      default: FARGATE
       enum:
         - EC2
         - FARGATE
@@ -87,7 +138,7 @@ schema:
           - EC2
           - FARGATE
     env:
-      title: Environment variables
+      title: Environment Variables
       type: array
       items:
         type: object
@@ -102,7 +153,11 @@ schema:
   required:
     - region
     - vpcId
+    - subnetIds
+    - publicSubnetIds
+    - clusterName
     - containerName
     - containerImage
     - containerPort
+    - launchType
 

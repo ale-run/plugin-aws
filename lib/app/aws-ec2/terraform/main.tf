@@ -9,22 +9,6 @@ provider "aws" {
   }  
 }
 
-locals {
-  associate_public_ip_address = (var.subnet_tier == "public") ? true : false
-}
-
-
-# subnetId
-data "aws_subnet" "subnet" {
-
-  vpc_id = var.vpc_id
-  availability_zone = var.subnet_zone
-
-  tags = {
-    Tier = var.subnet_tier
-  }
-}
-
 # data "aws_ami" "ubuntu" {
 #   most_recent = true
 
@@ -91,38 +75,42 @@ resource "aws_security_group_rule" "egress_all" {
   security_group_id = aws_security_group.security_group.id
 }
 
-#EC2 생성 
+#EC2  
 resource "aws_instance" "instance" {
-  ami           = "ami-042e76978adeb8c48"
+  ami           = var.ami_id
   instance_type = var.instance_type
 
-  #키페어
+  #key pair
   key_name = aws_key_pair.key_pair.key_name    
   
-  #subnetId (private/public a, b)
-  subnet_id = data.aws_subnet.subnet.id
+  #subnetId
+  subnet_id = var.subnet_id
   
-  #보안그룹
+  #sg
   vpc_security_group_ids = [aws_security_group.security_group.id]
 
-  #스토리지 (8GB) - 옵션
+  #storage
   root_block_device {
    volume_size = var.volume_size
    volume_type = "gp2"
   }
 
-  #publicIP 생성여부
-  associate_public_ip_address = local.associate_public_ip_address
+  #publicIP 
+  associate_public_ip_address = false
+  # Ignore public IP changes
+  lifecycle {
+    ignore_changes = [associate_public_ip_address, public_ip, public_dns]
+  }
 
   # tags = {
   #   Name = var.name
   # }
 }
 
-#EC2 상태
-resource "aws_ec2_instance_state" "state" {
-  instance_id = aws_instance.instance.id
-  state       = var.instance_state
+resource "aws_eip" "public_ip" {
+  count = var.associate_public_ip_address ? 1 : 0
+  instance = aws_instance.instance.id
+  domain   = "vpc"
 }
 
 #EC2 

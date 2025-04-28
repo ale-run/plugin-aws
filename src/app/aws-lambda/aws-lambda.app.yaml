@@ -23,6 +23,7 @@ schema:
         - nodejs18.x
       attrs:
         placeholder: Select a Runtime Language
+        readonly: true
         labels:
           - java11
           - nodejs18.x
@@ -36,6 +37,7 @@ schema:
         - ap-northeast-1
       attrs:
         placeholder: Select a Region
+        readonly: true
         labels:
           - United States (Ohio)
           - Asia Pacific (Seoul)
@@ -45,6 +47,7 @@ schema:
       type: string
       attrs:
         placeholder: Source File Name
+        readonly: true
     # sourceCode:
     #   title: Source Code
     #   type: string
@@ -90,6 +93,5 @@ schema:
     - runtime
     - region
     - sourceFileName
-    - inputParameter
 context:
   - git

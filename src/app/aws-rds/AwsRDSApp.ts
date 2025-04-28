@@ -1,10 +1,11 @@
-import { DeployedObject, IShell, Logger, SERVICE_STATUS, DeployedWorkload, DeployedWorkloadInstance, DeployedIngress, DeployedDomain, DeploymentStat, MetricItem, MetricData, MetricFilter } from '@ale-run/runtime';
+import { DeployedObject, IShell, Logger, SERVICE_STATUS, DeployedWorkload, DeployedWorkloadInstance, DeployedIngress, DeployedDomain, DeploymentStat, MetricItem, MetricData, MetricFilter, DeployedExpose } from '@ale-run/runtime';
 import { AwsAppController } from '../AwsAppController';
 import { Duplex } from 'stream';
 import { RDS } from './RDS';
 import { AwsRDSApi } from './AwsRDSApi';
 import { DBInstance } from '@aws-sdk/client-rds';
 import { Statistic } from '@aws-sdk/client-cloudwatch';
+import { MemoryDB } from '@aws-sdk/client-memorydb';
 
 
 const logger = Logger.getLogger('app:AwsRDSApp');
@@ -37,17 +38,19 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
     let identifier = this.session.refs.scopename + '-' + this.session.refs.projectname + '-' + this.session.refs.stagename + '-' + this.session.refs.deploymentname;
     let engine = this.request.options.engine;
     let engineVersion = engine === 'mysql' ? this.request.options.mysqlVersion : this.request.options.mariadbVersion;
-    let dbSubnetGroupName = this.request.options.dbSubnetGroupName;
+    const subnets = this.request.options.subnetIds;
+    let subnetIds: string[] = subnets ? subnets.trim().split(',') : [];
+    let subnetGroupName = this.request.options.subnetGroupName?.trim() || '';
     let instanceClass = this.request.options.instanceClass;
-    let username = this.request.options.username;
-    let password = this.request.options.password;
-
-    // if (password == undefined || password == null) {
-    //   password = uniqid();
+    let username = this.request.options.username?.trim();
+    let password = this.request.options.password?.trim();
+    if (password) {
+      password = Buffer.from(password).toString('base64');
+    }
+    // if (!password) {
+    //    password = uniqid();
     // }
-
-    const env = this.resolveEnv(this.request.options?.env);
-
+    
     const prevOptions = await this.store.loadObject('option');
     // This setting is fixed and cannot be updated.
     if (prevOptions) {
@@ -56,7 +59,8 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
       identifier = prevOptions?.identifier;
       engine = prevOptions?.engine;
       engineVersion = prevOptions?.engineVersion;
-      dbSubnetGroupName = prevOptions?.dbSubnetGroupName;
+      subnetIds = prevOptions?.subnetIds;
+      subnetGroupName = prevOptions?.subnetGroupName;
       instanceClass = prevOptions?.instanceClass;
       username = prevOptions?.username;
       password = prevOptions?.password;
@@ -65,8 +69,10 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
     if (!region) throw new Error(`options 'Region' is required`);
     if (!vpcId) throw new Error(`options 'VPC ID' is required`);
     if (!engine) throw new Error(`options 'Engine(Database)' is required`);
-    if (!dbSubnetGroupName) throw new Error(`options 'DB Subnet Group Name' is required`);
+    if (!subnetGroupName && !subnets) throw new Error(`options 'DB Subnet GRoup Name' or 'Subnet IDs' is required`);
     if (!instanceClass) throw new Error(`options 'Instance Class' is required`);
+    if (!username) throw new Error(`options 'Database Username' is required`);
+    if (!password) throw new Error(`options 'Database Password' is required`);
 
     const options = {
       region,
@@ -74,12 +80,11 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
       identifier,
       engine,
       engineVersion,
-      dbSubnetGroupName,
+      subnetIds,
+      subnetGroupName,
       instanceClass,
       username,
       password,
-      // state: STATE.stopped,
-      env
     } as RDS;
 
     await this.store.save('option', options);
@@ -106,12 +111,11 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
    */
   public async saveDescribe(options: RDS) {
 
-    const db_instance: DBInstance = await this.rdsApi.describe(options.region, options.identifier);
+    const dbInstance: DBInstance = await this.rdsApi.describe(options.region, options.identifier);
 
     await this.store.save('info',
       {
-        db_instance,
-        deployed: (db_instance.DBInstanceStatus === 'available') ? true : false,
+        dbInstance,
       }
     );
   
@@ -123,15 +127,17 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
    */
   public async start(): Promise<void> {
 
-    logger.info(`[START]`, this.request);
+    logger.info(`[START]`, this.request.name);
+    await this.store.save('status', SERVICE_STATUS.starting);
 
-    const options: RDS = await this.readOptions();
+    const options = await this.store.loadObject('option') as RDS;
     await this.runApply(options);
 
     // start
     const status = await this.rdsApi.start(options.region, options.identifier);
 
-    logger.info(`[START]Done`, this.request);
+    logger.info(`[START]Done`, this.request.name);
+    await this.store.save('status', SERVICE_STATUS.running);
     await this.saveDescribe(options);
 
   }
@@ -142,12 +148,14 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
    */
   public async stop(): Promise<void> {
 
-    logger.info(`[STOP]`, this.request);
+    logger.info(`[STOP]`, this.request.name);
+    await this.store.save('status', SERVICE_STATUS.stopping);
 
-    const options: RDS = await this.readOptions();
+    const options = await this.store.loadObject('option') as RDS;
     await this.rdsApi.stop(options.region, options.identifier);
 
-    logger.info(`[STOP]Done`, this.request);
+    logger.info(`[STOP]Done`, this.request.name);
+    await this.store.save('status', SERVICE_STATUS.stopped);
     await this.saveDescribe(options);
 
   }
@@ -160,44 +168,56 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
   public async list(kind?: string): Promise<DeployedObject[]> {
 
     const deployedObjects: DeployedObject[] = []
+
     const info = await this.store.loadObject('info');
     if (!info) return deployedObjects;
     const options = await this.store.loadObject('option');
+    const status = await this.store.load('status');
 
-    logger.info(`[LIST]`, this.request);
-    logger.info(`[LIST][info]`, info);
-
-    const db_instance: DBInstance = info?.db_instance;
+    const dbInstance: DBInstance = info?.dbInstance;
 
     // workload
     const workload = {
       kind: 'workload',
       name: options.identifier,
       displayName: options.identifier,
-      replicas: info.deployed ? 1 : 0, // stop은 ....... 
-      ready: info.deployed ? 1 : 0,
+      replicas: status === 'running' ? 1 : 0,
+      ready: status === 'running' ? 1 : 0,
       instances: [
-        {
-          id: db_instance.DBInstanceIdentifier,
-          status: db_instance.DBInstanceStatus,
-          started: new Date(db_instance.InstanceCreateTime),
+        {                                          
+          id: dbInstance.DBInstanceIdentifier,
+          status: dbInstance.DBInstanceStatus,
+          started: new Date(dbInstance.InstanceCreateTime),
           // ip: 
         }
       ]
     } as DeployedWorkload;
     deployedObjects.push(workload);
 
+    //Endpoint
+    if (dbInstance.PubliclyAccessible) {
+      const ingress = {
+        kind: 'ingress',
+        name: options.identifier,
+        type: 'tcp',
+        entrypoints: [dbInstance.Endpoint?.Address],
+        servicePort: dbInstance.Endpoint?.Port,
+        status: 'bound',
+        description: dbInstance.Endpoint
+      } as DeployedIngress;
+      deployedObjects.push(ingress);
+    }
 
-    const domain = {
-      kind: 'domain',
+    // Endpoint
+    const expose = {
+      kind: 'expose',
       name: options.identifier,
-      entrypoints: [db_instance.Endpoint?.Address],
-      // service: db_instance.DbInstancePort,
-      servicePort: db_instance.Endpoint?.Port,
-      status: 'bound',
-      description: db_instance.Endpoint
-    } as DeployedDomain;
-    deployedObjects.push(domain);
+      hostname: dbInstance.Endpoint?.Address,
+      port: dbInstance.Endpoint?.Port,
+      protocol: 'tcp',
+      description: dbInstance.Endpoint
+    } as DeployedExpose;
+    deployedObjects.push(expose);
 
     return deployedObjects;
 
@@ -210,38 +230,39 @@ export default class AwsRDSApp extends AwsAppController<RDS> {
   public async getStat(): Promise<DeploymentStat> {
 
     const info = await this.store.loadObject('info');
-    const option = await this.store.loadObject('option');
-
+    const option = await this.store.loadObject('option') as RDS;
+    const status = await this.store.load('status');
+    
     const statObject = {
       region: option?.region,
       metric: 'cloudwatch',
       namespace: 'AWS/RDS',
       dimensionName: 'DBInstanceIdentifier',
-      dimensionValue: info?.db_instance?.DBInstanceIdentifier,
-      identifier: option.identifier
+      dimensionValue: info?.dbInstance?.DBInstanceIdentifier,
+      identifier: option?.identifier
     }
 
     return {
-      status: info?.deployed ? SERVICE_STATUS.running : SERVICE_STATUS.stopped,
-      cpu: +info?.cpu || 0,
-      memory: +info?.cpu || 0,
-      disk: +info?.cpu || 0,
-      replicas: info?.deployed ? 1 : 0,
-      ready: info?.deployed ? 1 : 0,
-      available: info?.deployed ? 1 : 0,
-      unavailable: 0,
-      entrypoints: info?.endpoint
-        ?
-        [
-          {
-            link: info.endpoint,
-            type: 'tcp'
-          }
-        ]
-        : null,
-      exposes: [],
+      status: SERVICE_STATUS[status],
       objects: [statObject],
-      since: new Date(info?.launch_time)
+      // cpu: +info?.cpu || 0,
+      // memory: +info?.memory || 0,
+      // disk: +info?.disk || 0,
+      // replicas: status === 'running' ? 1 : 0,
+      // ready: status === 'running' ? 1 : 0,
+      // available: status === 'running' ? 1 : 0,
+      // unavailable: status === 'running' ? 0 : 1,
+      // entrypoints: info?.endpoint
+      //   ?
+      //   [
+      //     {
+      //       link: info.endpoint,
+      //       type: 'tcp'
+      //     }
+      //   ]
+      //   : null,
+      // exposes: [],
+      // since: new Date(info?.launch_time)
     };
 
   }

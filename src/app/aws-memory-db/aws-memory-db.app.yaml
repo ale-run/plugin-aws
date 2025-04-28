@@ -22,6 +22,7 @@ schema:
         - Redis 7.1
       attrs:
         placeholder: Select a Database
+        readonly: true
         labels:
           - Redis 6.2
           - Redis 7.1
@@ -35,6 +36,7 @@ schema:
         - ap-northeast-1
       attrs:
         placeholder: Select a Region
+        readonly: true
         labels:
           - United States (Ohio)
           - Asia Pacific (Seoul)
@@ -45,6 +47,21 @@ schema:
       maxLength: 255
       attrs:
         placeholder: vpc-123abc456def789
+        readonly: true
+    subnetIds:
+      title: Subnet IDs (Input the subnet Id separated by comma ',')
+      type: string
+      maxLength: 255
+      attrs:
+        placeholder: subnet-123abc456def789,subnet-123def456abc789
+        readonly: true
+    subnetGroupName:
+      title: Subnet Group Name (Subnet Group Name or Subnet IDs)
+      type: string
+      maxLength: 255
+      attrs:
+        placeholder: Existing subnet_group_name
+        readonly: true
     instanceClass:
       title: Instance Type
       type: string
@@ -56,28 +73,30 @@ schema:
         - db.r6g.xlarge	
       attrs:
         placeholder: Select a instance type
+        readonly: true
         labels:
           - db.t4g.small	(2 vCPUs,	 1.37 GiB, 0.128 Gbps)
           - db.t4g.medium	(2 vCPUs,	 3.09 GiB, 0.256 Gbps)
           - db.r6g.large	(2 vCPUs,	13.07 GiB, 0.75 Gbps)
           - db.r6g.xlarge	(4 vCPUs,	26.32 GiB, 1.25 Gbps)
-    env:
-      title: Environment variables
-      type: array
-      items:
-        type: object
-        properties:
-          name:
-            type: string
-          value:
-            type: string
-      additionalProperties: true
-      attrs:
-        type: env
+    # env:
+    #   title: Environment variables
+    #   type: array
+    #   items:
+    #     type: object
+    #     properties:
+    #       name:
+    #         type: string
+    #       value:
+    #         type: string
+    #   additionalProperties: true
+    #   attrs:
+    #     type: env
   required:
     #- identifier
     - engine
     - region
     - vpcId
+    - subnetIds
     - instanceClass
 

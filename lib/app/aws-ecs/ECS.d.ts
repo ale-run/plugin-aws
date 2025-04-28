@@ -1,13 +1,15 @@
 import { AWS } from '../AWS';
 import { Volume } from './Volume';
 export declare class ECS extends AWS {
+    subnetIds?: string[];
+    publicSubnetIds?: string[];
     clusterName: string;
-    efsName: string;
     taskRoleName: string;
     containerName: string;
     containerImage: string;
     containerPort: number;
     containerVolumes: Volume[];
+    efsName?: string;
     serviceName: string;
     launchType: string;
     desiredCount: number;

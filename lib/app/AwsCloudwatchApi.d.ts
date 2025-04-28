@@ -2,7 +2,7 @@ import { AnyObject, MetricData, MetricFilter } from '@ale-run/runtime';
 import { Datapoint, GetMetricStatisticsCommandInput, Statistic } from '@aws-sdk/client-cloudwatch';
 export declare class AwsCloudwatchApi {
     /**
-     * get Metric
+     * get MetricData
      * @param metricName
      * @param statistic
      * @param statObject
@@ -30,48 +30,26 @@ export declare class AwsCloudwatchApi {
      */
     getECSMetricData(metricName: string, statistic: Statistic, statObject: AnyObject, options: MetricFilter): Promise<MetricData>;
     /**
-     * CPUUtilization
-     * EC2, RDS
+     * CPUUtilization MetricData
      * @param statObject
      * @param options
      * @returns
      */
-    getCPUUtilization(statObject: AnyObject, options: MetricFilter): Promise<{
-        total: number;
-        dates: any[];
-        series: {
-            name: string;
-            values: any[];
-        }[];
-    }>;
+    getCPUUtilization(statObject: AnyObject, options: MetricFilter): Promise<MetricData>;
     /**
-     * EC2
+     * NetworkIn MetricData
      * @param statObject
      * @param options
      * @returns
      */
-    getNetworkIn(statObject: AnyObject, options: MetricFilter): Promise<{
-        total: number;
-        dates: any[];
-        series: {
-            name: string;
-            values: any[];
-        }[];
-    }>;
+    getNetworkIn(statObject: AnyObject, options: MetricFilter): Promise<MetricData>;
     /**
-     * EC2
+     * NetworkOut MetricData
      * @param statObject
      * @param options
      * @returns
      */
-    getNetworkOut(statObject: AnyObject, options: MetricFilter): Promise<{
-        total: number;
-        dates: any[];
-        series: {
-            name: string;
-            values: any[];
-        }[];
-    }>;
+    getNetworkOut(statObject: AnyObject, options: MetricFilter): Promise<MetricData>;
     getMetricStatistics(region: string, input: GetMetricStatisticsCommandInput): Promise<Datapoint[]> | undefined;
     private getClient;
     private getCommandInput;

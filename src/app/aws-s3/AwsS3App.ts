@@ -29,7 +29,6 @@ export default class AwsS3App extends AwsAppController<S3> {
 
     // Underscores ('_') are not allowed in Terraform
     let identifier = this.session.refs.scopename + '-' + this.session.refs.projectname + '-' + this.session.refs.stagename + '-' + this.session.refs.deploymentname;
-    const env = this.resolveEnv(this.request.options?.env);
 
     const prevOptions = await this.store.loadObject('option');
     // This setting is fixed and cannot be updated.
@@ -43,7 +42,6 @@ export default class AwsS3App extends AwsAppController<S3> {
     const options = {
       region,
       identifier,
-      env
     } as S3;
 
     await this.store.save('option', options);
@@ -60,15 +58,14 @@ export default class AwsS3App extends AwsAppController<S3> {
   public async saveOutput(stream: Duplex, shell: IShell, options?: S3): Promise<void> {
 
     // output 
-    const bucket_id = await this.getOutput(stream, shell, 'bucket_id');
-    const bucket_domain_name = await this.getOutput(stream, shell, 'bucket_domain_name');
+    const bucketId = await this.getOutput(stream, shell, 'bucket_id');
+    const bucketDomainName = await this.getOutput(stream, shell, 'bucket_domain_name');
 
     // save
     await this.store.save('info',
       {
-        bucket_id,
-        bucket_domain_name,
-        deployed: true,
+        bucketId,
+        bucketDomainName,
       }
     );
   }
@@ -81,32 +78,42 @@ export default class AwsS3App extends AwsAppController<S3> {
   public async list(kind?: string): Promise<DeployedObject[]> {
 
     const deployedObjects: DeployedObject[] = []
+
     const info = await this.store.loadObject('info');
     if (!info) return deployedObjects;
     const options = await this.store.loadObject('option');
+    const status = await this.store.load('status');
 
-    logger.info(`[LIST]`, this.request);
-    logger.info(`[LIST][info]`, info);
-    
     // workload
     const workload = {
       kind: 'workload',
       name: options.identifier,
       displayName: options.identifier,
-      replicas: info.deployed ? 1 : 0,
-      ready: info.deployed ? 1 : 0,
+      replicas: status === 'running' ? 1 : 0,
+      ready: status === 'running' ? 1 : 0,
     } as DeployedWorkload;
     deployedObjects.push(workload);
 
-
-    const domain = {
-      kind: 'domain',
+    // domainName
+    const ingress = {
+      kind: 'ingress',
       name: options.identifier,
-      entrypoints: [info?.bucket_domain_name],
+      type: 'tcp',
+      entrypoints: [info?.bucketDomainName],
       // servicePort: 80,
       status: 'bound',
-    } as DeployedDomain;
-    deployedObjects.push(domain);
+      // description: 'description'
+    } as DeployedIngress;
+    deployedObjects.push(ingress);
+
+    // const domain = {
+    //   kind: 'domain',
+    //   name: options?.identifier,
+    //   entrypoints: [info?.bucketDomainName],
+    //   // servicePort: 80,
+    //   status: 'bound',
+    // } as DeployedDomain;
+    // deployedObjects.push(domain);
 
     return deployedObjects;
 
@@ -119,38 +126,39 @@ export default class AwsS3App extends AwsAppController<S3> {
   public async getStat(): Promise<DeploymentStat> {
 
     const info = await this.store.loadObject('info');
-    const option = await this.store.loadObject('option');
+    const option = await this.store.loadObject('option') as S3;
+    const status = await this.store.load('status');
 
-    const rds = {
+    const statObject = {
       region: option?.region,
       metric: 'cloudwatch',
       namespace: 'AWS/S3',
       dimensionName: 'BucketName',
-      dimensionValue: info?.bucket_id,
-      identifier: option.identifier
+      dimensionValue: info?.bucketId,
+      identifier: option?.identifier
     }
 
     return {
-      status: info?.deployed ? SERVICE_STATUS.running : SERVICE_STATUS.stopped,
-      cpu: +info?.cpu || 0,
-      memory: +info?.cpu || 0,
-      disk: +info?.cpu || 0,
-      replicas: info?.deployed ? 1 : 0,
-      ready: info?.deployed ? 1 : 0,
-      available: info?.deployed ? 1 : 0,
-      unavailable: 0,
-      entrypoints: info?.endpoint
-        ?
-        [
-          {
-            link: info.endpoint,
-            type: 'tcp'
-          }
-        ]
-        : null,
-      exposes: [],
-      objects: [rds],
-      since: new Date(info?.launch_time)
+      status: SERVICE_STATUS[status],
+      objects: [statObject],
+      // cpu: +info?.cpu || 0,
+      // memory: +info?.memory || 0,
+      // disk: +info?.disk || 0,
+      // replicas: status === 'running' ? 1 : 0,
+      // ready: status === 'running' ? 1 : 0,
+      // available: status === 'running' ? 1 : 0,
+      // unavailable: status === 'running' ? 0 : 1,
+      // entrypoints: info?.endpoint
+      //   ?
+      //   [
+      //     {
+      //       link: info.endpoint,
+      //       type: 'tcp'
+      //     }
+      //   ]
+      //   : null,
+      // exposes: [],
+      // since: new Date(info?.launch_time)
     };
 
   }

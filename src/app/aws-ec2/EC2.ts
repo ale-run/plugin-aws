@@ -3,10 +3,14 @@ import { AWS } from '../AWS';
 export class EC2 extends AWS {
 
     instanceType: string;
-    subnetTier: string;
-    subnetZone: string;
+    subnetId: string;
+    amiId: string;
+    imageName?: string;
+    associatePublicIpAddress: boolean;
+    // subnetTier: string;
+    // subnetZone: string;
     volumeSize: number;
-    instanceState?: string;
-    // env?: any;
+    username?: string;
+    //instanceState?: string;
 
 }

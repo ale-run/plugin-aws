@@ -71,8 +71,6 @@ export class AwsECSApi {
   // https://docs.aws.amazon.com/ko_kr/AmazonECS/latest/APIReference/API_DescribeTasks.html
   public async describeTask(region: string, cluster: string, serviceName: string): Promise<Task> | undefined {
 
-    console.debug('describeTask');
-
     const taskArns = await this.listTasks(region, cluster, serviceName)
     if (taskArns === undefined || taskArns.length === 0 ) {
       logger.error(`${serviceName} taskArn not found!!!!`)

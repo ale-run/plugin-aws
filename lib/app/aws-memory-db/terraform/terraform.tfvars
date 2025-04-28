@@ -5,9 +5,10 @@ name                    = "${identifier}"
 #Terraform Valkey 미지원(241010기준)
 engine                  = "${engine}"
 engine_version          = "${engineVersion}"
-node_type              = "${instanceClass}"
+subnet_ids              = ${JSON.stringify(subnetIds)}
+node_type               = "${instanceClass}"
 #port                   = 6379
 #num_shards             = 1
 #num_replicas_per_shard = 1
-subnet_group_name      = "${identifier}"
+subnet_group_name      = "${subnetGroupName}"
 acl_name               = "${identifier}"

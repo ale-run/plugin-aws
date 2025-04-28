@@ -3,11 +3,11 @@
 
 <p align="center">
 <a href="https://ale.run/">
-  <img src="https://files.cloudtype.io/logo/ale-wordmark-black.svg" width="160px" alt="Ale logo" />
+  <img src="https://raw.githubusercontent.com/ale-run/ale/refs/heads/main/resources/logo/ale-wordmark-black.svg" width="160px" alt="Ale logo" />
 </a>
 </p>
-<h3 align="center">A Fully Customizable Internal Developer Platform</h3>
-<p align="center">A framework that enables a fully self-service environment for developers. <br />Build your team’s Internal Developer Platform more efficiently.</p>
+<h3 align="center">A Fully Customizable Developer Platform</h3>
+<p align="center">Ale is an extensible, self-hosted developer platform offering full customization, enabling you to build and deploy on your terms.</p>
 
 <br />
 

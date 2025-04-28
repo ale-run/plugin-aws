@@ -16,6 +16,11 @@ variable "vpc_id" {
   #default     = ""
 }
 
+variable "subnet_ids" {
+  description = "List of subnet IDs"
+  type        = list(string)
+}
+
 variable "name" {
   description = "name of the MemoryDB"
   type        = string

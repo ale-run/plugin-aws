@@ -16,48 +16,38 @@ data "aws_ecs_cluster" "cluster" {
 
 # efs
 data "aws_efs_file_system" "efs" {
+  count  = var.efs_name != "" ? 1 : 0
   tags = {
     Name = var.efs_name
   }
 }
+
 # ecs TaskExecutionRole
 data "aws_iam_role" "task_role" {
   name = var.task_role_name
 }
 
-# public subnet Ids (LB 생성용)
-data "aws_subnets" "public_subnets" {
-  filter {
-    name   = "vpc-id"
-    values = [var.vpc_id]
-  }
+# # public subnet Ids (LB 생성용)
+# data "aws_subnets" "public_subnets" {
+#   filter {
+#     name   = "vpc-id"
+#     values = [var.vpc_id]
+#   }
 
-  tags = {
-    Tier = "public"
-  }
-}
-
-# subnet Ids (FARGATE network 설정용)
-data "aws_subnets" "private_subnets" {
-  filter {
-    name   = "vpc-id"
-    values = [var.vpc_id]
-  }
-
-  tags = {
-    Tier = "private"
-  }
-}
+#   tags = {
+#     Tier = "public"
+#   }
+# }
 
 locals {
   volume_names = [for each in var.container_volumes : each.name]
 }
 
-# efs내 access point 생성
+# create access point in EFS
 resource "aws_efs_access_point" "access_point" {
   count = length(var.container_volumes)
  
-  file_system_id = data.aws_efs_file_system.efs.id
+  file_system_id = data.aws_efs_file_system.efs[0].id
 
   tags ={
     Name = var.container_volumes[count.index].efs_path
@@ -92,7 +82,7 @@ resource "aws_ecs_task_definition" "task" {
     cpu_architecture        = "X86_64"
     operating_system_family = "LINUX"
   }
-  //특별한 사유가 없는 한 network_mode = "awsvpc" 사용 권장
+  // It is recommended to use network_mode = 'awsvpc' by default,
   network_mode       = "awsvpc"
   cpu                = var.cpu
   memory             = var.memory
@@ -180,7 +170,7 @@ resource "aws_ecs_task_definition" "task" {
       name = volume.value
 
       efs_volume_configuration {
-          file_system_id          = data.aws_efs_file_system.efs.id
+          file_system_id          = data.aws_efs_file_system.efs[0].id
           root_directory          = "/"
           transit_encryption      = "ENABLED"
           //transit_encryption_port = 2999
@@ -253,7 +243,7 @@ resource "aws_lb" "lb" {
   load_balancer_type = "application"
   internal           = false
   security_groups    = [aws_security_group.security_group.id]
-  subnets            = data.aws_subnets.public_subnets.ids
+  subnets            = var.public_subnet_ids
 
   #true인 경우 terraform을 통한 삭제 불가
   #enable_deletion_protection = true
@@ -332,26 +322,26 @@ resource "aws_ecs_service" "service" {
 
   #배포 옵션
   #Type of deployment controller.(CODE_DEPLOY, ECS, EXTERNAL)
-  #ECS:롤링업데이트, CODE_DEPLOY:Blue/Green 
+  #ECS:RollingUpdate, CODE_DEPLOY:Blue/Green 
   deployment_controller {
     type = "ECS"
   }
   deployment_minimum_healthy_percent = 50
 
-  #배포 실패 감지
+  # 배포 실패 감지
   # deployment_circuit_breaker {
   #   enable = true
   #   rollback = true
   # }
-
-  # 네트워킹
+  
+  # required for tasks that use network_mode = 'awsvpc' in order to receive their own Elastic Network Interface (ENI)."
   network_configuration {
-    subnets          = data.aws_subnets.private_subnets.ids
+    subnets          = var.subnet_ids
     security_groups  = [aws_security_group.security_group.id]
     assign_public_ip = false
   }
 
-  # 로그 밸런싱
+  # Load Balancer
   load_balancer {
     target_group_arn = aws_lb_target_group.target_group.arn
     container_name   = var.container_name
