@@ -15,11 +15,15 @@ variable "vpc_id" {
   type        = string
 }
 
-# variable "azs" {
-#   description = "availability zones names"
-#   type        = list(string)
-#   default     = ["ap-northeast-2a", "ap-northeast-2c"]
-# }
+variable "subnet_ids" {
+  description = "List of subnet IDs"
+  type        = list(string)
+}
+
+variable "public_subnet_ids" {
+  description = "List of public subnet IDs"
+  type        = list(string)
+}
 
 variable "cluster_name" {
   description = "Name of clister"

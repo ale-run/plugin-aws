@@ -10,20 +10,8 @@ output "VPC_ID" {
   value = var.vpc_id
 }
 
-output "public_subnets_ids" {
-  value = data.aws_subnets.public_subnets.ids
-}
-
-output "private_subnets_ids" {
-  value = data.aws_subnets.private_subnets.ids
-}
-
 output "cluster_id" {
   value = data.aws_ecs_cluster.cluster.id
-}
-
-output "efs_id" {
-  value = data.aws_efs_file_system.efs.id
 }
 
 output "task" {

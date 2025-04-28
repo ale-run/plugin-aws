@@ -5,7 +5,7 @@ import { ECS } from './ECS';
 import { Volume } from './Volume';
 import { AwsECSApi } from './AwsECSApi';
 import { Task, TaskDefinition } from '@aws-sdk/client-ecs';
-import { AwsELBApi } from './AwsELBApi';
+import { AwsELBApi } from '../AwsELBApi';
 import { LoadBalancer, LoadBalancerStateEnum } from '@aws-sdk/client-elastic-load-balancing-v2';
 import { ECSInfo } from './ECSInfo';
 import { Statistic } from '@aws-sdk/client-cloudwatch';
@@ -28,10 +28,10 @@ export default class AwsECSApp extends AwsAppController<ECS> {
   private readonly EFS_NAME = 'ecs-efs-volume';
   private readonly TASK_ROLE_NAME = 'ecsTaskExecutionRole'
 
-/**
- * AwsAppController.getDirname
- * @returns 
- */
+  /**
+   * AwsAppController.getDirname
+   * @returns 
+   */
   public getDirname(): string {
     return __dirname;
   }
@@ -46,12 +46,16 @@ export default class AwsECSApp extends AwsAppController<ECS> {
     let region = this.request.options.region || this.plugin?.options?.REGION;
     // If the user didn't provide a vpcId value in request.options, use the vpcId value from plugin?.options as a fallback.
     let vpcId = this.request.options.vpcId || this.plugin?.options?.VPC_ID;
+    const subnets = this.request.options.subnetIds;
+    let subnetIds: string[] = subnets ? subnets.trim().split(',') : this.plugin?.options?.SUBNET_IDS;
+
+    const publicSubnets = this.request.options.publicSubnetIds;
+    let publicSubnetIds: string[] = publicSubnets ? publicSubnets.trim().split(',') : this.plugin?.options?.PUBLIC_SUBNET_IDS;
 
     // Underscores ('_') are not allowed in Terraform
     let identifier = this.session.refs.scopename + '-' + this.session.refs.projectname + '-' + this.session.refs.stagename + '-' + this.session.refs.deploymentname;
 
-    let clusterName = this.CLUSTER_NAME;
-    let efsName = this.EFS_NAME;
+    let clusterName = this.request.options.clusterName;
     let taskRoleName = this.TASK_ROLE_NAME;
 
     const containerName = this.request.options.containerName;
@@ -61,9 +65,9 @@ export default class AwsECSApp extends AwsAppController<ECS> {
     // service & lb name (32 character) 
     const serviceName = this.session.refs.scopename + '-' + this.session.refs.projectname + '-' + this.session.refs.deploymentname
 
+    const efsName = this.request.options.efsName || '';
     const volumes = this.request.options.volumes;
-    const containerVolumes: Volume[] = []
-
+    const containerVolumes: Volume[] = [];
     if (volumes) {
       for (const v of volumes) {
         const containerVolume: Volume = {
@@ -78,6 +82,7 @@ export default class AwsECSApp extends AwsAppController<ECS> {
     }
 
     const launchType = this.request.options.launchType;
+
     const desiredCount = this.request.options.desiredCount;
     let env = this.request.options?.env;
 
@@ -94,38 +99,47 @@ export default class AwsECSApp extends AwsAppController<ECS> {
     if (prevOptions) {
       region = prevOptions?.region;
       vpcId = prevOptions?.vpcId;
+      subnetIds = prevOptions?.subnetIds;
+      publicSubnetIds = prevOptions?.publicSubnetIds;
       identifier = prevOptions?.identifier;
       clusterName = prevOptions?.clusterName;
-      efsName = prevOptions?.efsName;
       taskRoleName = prevOptions?.taskRoleName;
     }
 
-    logger.debug('containerVolumes=', JSON.stringify(containerVolumes));
-    logger.debug('environments=', JSON.stringify(environments));
-    logger.debug('env=', JSON.stringify(env));
+    // logger.debug('containerVolumes=', JSON.stringify(containerVolumes));
+    // logger.debug('environments=', JSON.stringify(environments));
+    // logger.debug('env=', JSON.stringify(env));
 
     if (!region) throw new Error(`options 'Region' is required`);
     if (!vpcId) throw new Error(`options 'VPC ID' is required`);
-    if (!containerName) throw new Error(`options 'containerName' is required`);
-    if (!containerImage) throw new Error(`options 'containerImage' is required`);
-    if (!containerPort) throw new Error(`options 'containerPort' is required`);
+    if (!subnetIds) throw new Error(`options 'Subnet IDs' is required`);
+    if (!publicSubnetIds) throw new Error(`options 'Public Subnet IDs' is required`);
+    if (!clusterName) throw new Error(`options 'Cluster Name' is required`);
+    if (!containerName) throw new Error(`options 'Container Name' is required`);
+    if (!containerImage) throw new Error(`options 'Container Image' is required`);
+    if (!containerPort) throw new Error(`options 'Container Port' is required`);
+    if (volumes && volumes.length > 0 && !efsName) throw new Error(`options 'EFS Name' is required when using volumes`);
+
 
     const options: ECS = {
       region,
       vpcId,
+      subnetIds,
+      publicSubnetIds,
       identifier,
 
       clusterName,
-      efsName,
       taskRoleName,
 
       containerName,
       containerImage,
       containerPort,
       containerVolumes,
+      efsName,
 
       serviceName,
       launchType,
+
       desiredCount,
       environments,
       env
@@ -194,7 +208,7 @@ export default class AwsECSApp extends AwsAppController<ECS> {
     await this.store.save('status', SERVICE_STATUS.stopping);
 
     const options = await this.store.loadObject('option') as ECS;
-    
+
     options.desiredCount = 0;
     await this.runApply(options)
 
@@ -215,16 +229,16 @@ export default class AwsECSApp extends AwsAppController<ECS> {
     const info = await this.store.loadObject('info');
     if (!info) return deployedObjects;
     const options = await this.store.loadObject('option');
-    
+
     const taskDefinition: TaskDefinition = info.taskDefinition;
     const loadBalancer: LoadBalancer = info.loadBalancer;
 
-    let task:Task;
+    let task: Task;
     if (info.desiredCount > 0) {
       task = await this.ecsApi.describeTask(options.region, options.clusterName, options.serviceName);
       info.task = task;
     }
-     
+
     // workload
     const workload = {
       kind: 'workload',
@@ -272,22 +286,26 @@ export default class AwsECSApp extends AwsAppController<ECS> {
     deployedObjects.push(ingress);
 
     // volume
-    for (const idx in taskDefinition?.containerDefinitions[0].mountPoints) {
-      const mountPoint = taskDefinition?.containerDefinitions[0].mountPoints[idx];
-      const volume = taskDefinition?.volumes[idx];
+    const mountPoints = taskDefinition?.containerDefinitions?.[0].mountPoints;
+    if (mountPoints && mountPoints.length > 0) {
+      mountPoints.forEach((mountPoint, idx) => {
+        
+        const volume = taskDefinition?.volumes[idx];
 
-      const v: DeployedVolume = {
-        kind: 'volume',
-        name: mountPoint?.sourceVolume, 
-        // name: `${mountPoint?.sourceVolume} (${mountPoint?.containerPath})`, 
-        size: 0, // 용량, GiB 단위
-        mode: (mountPoint?.readOnly) ? 'ro' : 'rwx', // 모드, rwo, rwx, ro
-        status: 'bound', 
-        // fileSystemId: volume?.efsVolumeConfiguration.fileSystemId,
-        // accessPointId: volume?.efsVolumeConfiguration.authorizationConfig.accessPointId,
-        description: volume 
-      } as DeployedVolume
-      deployedObjects.push(v);
+        const v: DeployedVolume = {
+          kind: 'volume',
+          name: mountPoint?.sourceVolume,
+          // name: `${mountPoint?.sourceVolume} (${mountPoint?.containerPath})`, 
+          size: 0, // 용량, GiB 단위
+          mode: (mountPoint?.readOnly) ? 'ro' : 'rwx', // 모드, rwo, rwx, ro
+          status: 'bound',
+          // fileSystemId: volume?.efsVolumeConfiguration.fileSystemId,
+          // accessPointId: volume?.efsVolumeConfiguration.authorizationConfig.accessPointId,
+          description: volume
+        } as DeployedVolume
+        deployedObjects.push(v);
+
+      });
     }
 
     return deployedObjects;
@@ -303,10 +321,10 @@ export default class AwsECSApp extends AwsAppController<ECS> {
     const info = await this.store.loadObject('info') as ECSInfo;
     const option = await this.store.loadObject('option') as ECS;
     const status = await this.store.load('status');
-    
+
     const regex = new RegExp('loadbalancer/(app/.*)');
     const match = regex.exec(info?.loadBalancer?.LoadBalancerArn);
-    const loadBalancer = match[1];
+    const loadBalancer = match?.[1];
 
     const statObject = {
       region: option?.region,
@@ -328,7 +346,7 @@ export default class AwsECSApp extends AwsAppController<ECS> {
       identifier: option?.identifier
     }
 
-    
+
     return {
       status: SERVICE_STATUS[status],
       objects: [statObject, elbObject],
@@ -373,14 +391,14 @@ export default class AwsECSApp extends AwsAppController<ECS> {
         unit: '%',
       },
       {
+        name: 'RequestCount',
+        title: 'RequestCount',
+        unit: 'Count',
+      },
+      {
         name: 'ProcessedBytes',
         title: 'ProcessedBytes',
         unit: 'Byte',
-      },
-      {
-        name: 'HTTPCode_ELB_4XX_Count',
-        title: 'HTTPCode_ELB_4XX_Count',
-        unit: 'Count',
       },
       {
         name: 'HTTPCode_Target_2XX_Count',
@@ -398,14 +416,14 @@ export default class AwsECSApp extends AwsAppController<ECS> {
         unit: 'Count',
       },
       {
-        name: 'HTTPCode_Target_5XX_Count',
-        title: 'HTTPCode_Target_5XX_Count',
+        name: 'HTTPCode_ELB_4XX_Count',
+        title: 'HTTPCode_ELB_4XX_Count',
         unit: 'Count',
       },
 
     ]
   }
-
+  
 
   public async getMetric(name: string, options: MetricFilter): Promise<MetricData> {
 
@@ -418,15 +436,13 @@ export default class AwsECSApp extends AwsAppController<ECS> {
         if (metricObject === undefined) return;
         metricData = await this.cloudwatchApi.getECSMetricData(name, Statistic.Average, metricObject, options);
         break;
+      case 'RequestCount':        
       case 'ProcessedBytes':
-      case 'HTTPCode_ELB_2XX_Count':
-      case 'HTTPCode_ELB_3XX_Count':
-      case 'HTTPCode_ELB_4XX_Count':
-      case 'HTTPCode_ELB_5XX_Count':
       case 'HTTPCode_Target_2XX_Count':
       case 'HTTPCode_Target_3XX_Count':
       case 'HTTPCode_Target_4XX_Count':
-      case 'HTTPCode_Target_5XX_Count':
+      case 'HTTPCode_ELB_4XX_Count':
+    
         const elbObject = await this.getStatObject('cloudwatch/ELB');
         if (elbObject === undefined) return;
         metricData = await this.cloudwatchApi.getMetricData(name, Statistic.Sum, elbObject, options);

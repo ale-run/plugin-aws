@@ -25,7 +25,7 @@
     "ssh2": "^1.16.0"
   },
   "devDependencies": {
-    "@ale-run/runtime": "^0.1.0-rc.1",
+    "@ale-run/runtime": "^0.1.0-rc.7",
     "@types/node": "^22.5.1",
     "@types/ssh2": "^1.15.4",
     "copyfiles": "^2.4.1",
