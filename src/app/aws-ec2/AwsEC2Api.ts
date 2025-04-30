@@ -1,5 +1,5 @@
 import { Logger } from '@ale-run/runtime';
-import { EC2Client, Image, DescribeImagesCommand, InstanceStateChange, StartInstancesCommand, StopInstancesCommand } from '@aws-sdk/client-ec2';
+import { EC2Client, Image, DescribeImagesCommand, InstanceStateChange, StartInstancesCommand, StopInstancesCommand, DescribeInstancesCommand, Instance, DescribeVolumesCommand, Volume } from '@aws-sdk/client-ec2';
 
 const logger = Logger.getLogger('app:AwsEC2Api');
 
@@ -24,7 +24,7 @@ export class AwsEC2Api {
    * @param amiId 
    * @returns 
    */
-   public async describeImage(region: string, amiId: string): Promise<Image> | undefined {
+  public async describeImage(region: string, amiId: string): Promise<Image> | undefined {
 
     const client = this.getClient(region);
     const input =
@@ -112,6 +112,87 @@ export class AwsEC2Api {
 
     } catch (err) {
       logger.error('stopInstance Error ===========================================')
+      logger.error(input)
+      logger.error(err)
+    } finally {
+      client.destroy();
+    }
+
+  }
+
+
+  /**
+   * 
+   * @param region 
+   * @param instanceName 
+   * @returns 
+   */
+    public async describeInstance(region: string, instanceName: string): Promise<Instance> | undefined {
+
+    const client = this.getClient(region);
+    const input = {
+      Filters: [
+        {
+          Name: 'tag:Name',
+          Values: [instanceName],
+        },
+      ]
+    }
+
+    try {
+
+      const command = new DescribeInstancesCommand(input);
+      const response = await client.send(command);
+
+      if (response.$metadata.httpStatusCode === 200) {
+        logger.info(`[describeInstance][${instanceName}]`, response.Reservations);
+        const instances =
+          response.Reservations?.flatMap(r => r.Instances ?? []) ?? [];
+        logger.debug(`[describeInstance][${instanceName}]`, instances);
+        return instances?.[0];
+      }
+
+    } catch (err) {
+      logger.error('describeInstance Error ===========================================')
+      logger.error(input)
+      logger.error(err)
+    } finally {
+      client.destroy();
+    }
+
+  }
+
+
+  /**
+   * 
+   * @param region 
+   * @param instanceId 
+   * @returns 
+   */
+  public async describeVolumes(region: string, instanceId: string): Promise<Volume[]> | undefined {
+
+    const client = this.getClient(region);
+    const input = {
+      Filters: [
+        {
+          Name: 'attachment.instance-id',
+          Values: [instanceId] // 원하는 EC2 인스턴스 ID
+        }
+      ]
+    }
+
+    try {
+
+      const command = new DescribeVolumesCommand(input);
+      const response = await client.send(command);
+
+      if (response.$metadata.httpStatusCode === 200) {
+        logger.debug(`[describeVolumes][${instanceId}]`, response.Volumes);
+        return response.Volumes;
+      }
+
+    } catch (err) {
+      logger.error('describeVolumes Error ===========================================')
       logger.error(input)
       logger.error(err)
     } finally {

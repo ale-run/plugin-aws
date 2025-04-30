@@ -11,6 +11,6 @@ export class EC2 extends AWS {
     // subnetZone: string;
     volumeSize: number;
     username?: string;
-    //instanceState?: string;
+    // instanceState?: string;
 
 }

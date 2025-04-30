@@ -3,10 +3,9 @@ import { DeployedObject, IShell, Logger, SERVICE_STATUS, DeployedWorkload, Deplo
 import { AwsAppController } from '../AwsAppController';
 import { Duplex, PassThrough, Readable, Transform, Writable } from 'stream';
 import { EC2 } from './EC2';
-import { Volume } from './Volume';
 import { Client, ClientChannel, ConnectConfig } from 'ssh2';
 import { AwsEC2Api } from './AwsEC2Api';
-import { Image } from '@aws-sdk/client-ec2';
+import { Image, Instance, Volume } from '@aws-sdk/client-ec2';
 
 
 const logger = Logger.getLogger('app:AwsEC2App');
@@ -42,7 +41,7 @@ export default class AwsEC2App extends AwsAppController<EC2> {
     // let subnetZone = this.request.options.subnetZone.trim();
     let associatePublicIpAddress = this.request.options.associatePublicIpAddress;
     const instanceType = this.request.options.instanceType.trim();
-    let volumeSize = this.request.options.volumeSize;
+    const volumeSize = this.request.options.volumeSize;
     let username = this.request.options.username;
 
     const prevOptions = await this.store.loadObject('option');
@@ -54,7 +53,7 @@ export default class AwsEC2App extends AwsAppController<EC2> {
       subnetId = prevOptions?.subnetId;
       amiId = prevOptions?.amiId;
       associatePublicIpAddress = prevOptions?.associatePublicIpAddress;
-      //volumeSize = prevOptions?.volumeSize;
+      // volumeSize = prevOptions?.volumeSize;
       // subnetTier = prevOptions?.subnetTier;
       // subnetZone = prevOptions?.subnetZone;
     }
@@ -87,7 +86,7 @@ export default class AwsEC2App extends AwsAppController<EC2> {
       instanceType,
       volumeSize,
       username,
-      //instanceState: SERVICE_STATUS.running,
+      // instanceState: SERVICE_STATUS.running,
     } as EC2;
 
     await this.store.save('option', options);
@@ -115,7 +114,7 @@ export default class AwsEC2App extends AwsAppController<EC2> {
     const launchTime = await this.getOutput(stream, shell, 'launch_time');
     const publicDns = await this.getOutput(stream, shell, 'public_dns');
     const publicIp = await this.getOutput(stream, shell, 'public_ip');
-    const rootBlockDevice = await this.getOutput(stream, shell, 'root_block_device');
+    // const rootBlockDevice = await this.getOutput(stream, shell, 'root_block_device');
     // save info
     await this.store.save('info',
       {
@@ -126,9 +125,34 @@ export default class AwsEC2App extends AwsAppController<EC2> {
         launchTime,
         publicDns,
         publicIp,
-        rootBlockDevice
       }
     );
+  }
+
+  /**
+   * AwsAppController.saveDescribe
+   * Called by start
+   * Describe instances via the AwsRDSApi(aws sdk)
+   * @param options 
+   */
+  public async saveDescribe(options: EC2) {
+
+    const instance: Instance = await this.ec2Api.describeInstance(options.region, options.identifier);
+    const volumes: Volume[] = await this.ec2Api.describeVolumes(options.region, instance?.InstanceId);
+
+    await this.store.save('info',
+      {
+        instanceId: instance?.InstanceId,
+        instanceType: instance?.InstanceType,
+        privateDns: instance?.PrivateDnsName,
+        privateIp: instance?.PrivateIpAddress,
+        launchTime: instance.LaunchTime,
+        publicDns: instance?.PublicDnsName,
+        publicIp: instance?.PublicIpAddress,
+        volumes
+      }
+    );
+
   }
 
   // save pem 
@@ -139,6 +163,8 @@ export default class AwsEC2App extends AwsAppController<EC2> {
       await this.store.save('pem', pem);
     }
   }
+
+
 
   /**
    * AppController.start
@@ -324,7 +350,7 @@ export default class AwsEC2App extends AwsAppController<EC2> {
         {
           id: info?.instanceId,
           status: info?.instanceState,
-          started: new Date(info?.start),
+          started: new Date(info?.launchTime),
           ip: info?.privateDns
         }
       ]
@@ -357,8 +383,8 @@ export default class AwsEC2App extends AwsAppController<EC2> {
     deployedObjects.push(expose);
 
     // volume
-    if (info?.rootBlockDevice) {
-      const volumes: Volume[] = JSON.parse(info?.rootBlockDevice);
+    if (info?.volumes) {
+
 
       // delete_on_termination: true
       // device_name: /dev/sda1
@@ -375,14 +401,13 @@ export default class AwsEC2App extends AwsAppController<EC2> {
       // volume_size: 50
       // volume_type: gp2
 
-      for (const volume of volumes) {
+      for (const volume of info?.volumes) {
         const v = {
           kind: 'volume',
-          name: volume.volume_id,
-          // displayName: volume.device_name,
-          size: volume.volume_size,
+          name: volume.VolumeId,
+          size: volume.Size,
           mode: 'rwx',
-          status: 'bound',
+          status: (volume.State === 'in-use') ? 'bound' : 'unbound',
           description: volume
         } as DeployedVolume
         deployedObjects.push(v);

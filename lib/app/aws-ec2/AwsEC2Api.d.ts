@@ -1,4 +1,4 @@
-import { Image, InstanceStateChange } from '@aws-sdk/client-ec2';
+import { Image, InstanceStateChange, Instance, Volume } from '@aws-sdk/client-ec2';
 /**
  * AWS EC2
  */
@@ -25,4 +25,18 @@ export declare class AwsEC2Api {
      * @returns
      */
     stopInstance(region: string, instanceId: string): Promise<InstanceStateChange> | undefined;
+    /**
+     *
+     * @param region
+     * @param instanceName
+     * @returns
+     */
+    describeInstance(region: string, instanceName: string): Promise<Instance> | undefined;
+    /**
+     *
+     * @param region
+     * @param instanceId
+     * @returns
+     */
+    describeVolumes(region: string, instanceId: string): Promise<Volume[]> | undefined;
 }

@@ -21,6 +21,13 @@ export default class AwsEC2App extends AwsAppController<EC2> {
      * @param options
      */
     saveOutput(stream: Duplex, shell: IShell, options?: EC2): Promise<void>;
+    /**
+     * AwsAppController.saveDescribe
+     * Called by start
+     * Describe instances via the AwsRDSApi(aws sdk)
+     * @param options
+     */
+    saveDescribe(options: EC2): Promise<void>;
     private savePem;
     /**
      * AppController.start
